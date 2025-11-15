@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, FileText, Users, Settings, BarChart3, Server, User } from "lucide-react";
+import { LayoutDashboard, Mail, FileText, Users, Settings, BarChart3, Server, User, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -31,6 +31,7 @@ const superadminItems = [
 const companyUserItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Campaigns", url: "/campaigns", icon: Mail },
+  { title: "Responses", url: "/responses", icon: MessageSquare },
   { title: "Templates", url: "/templates", icon: FileText },
   { title: "Contacts", url: "/contacts", icon: Users },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },

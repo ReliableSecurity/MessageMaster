@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import Dashboard from "@/pages/dashboard";
 import Templates from "@/pages/templates";
 import Services from "@/pages/services";
+import Responses from "@/pages/responses";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/templates" component={Templates} />
       <Route path="/services" component={Services} />
+      <Route path="/responses" component={Responses} />
       <Route component={NotFound} />
     </Switch>
   );
