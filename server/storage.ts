@@ -71,6 +71,7 @@ export interface IStorage {
   
   // Contacts
   getContact(id: string): Promise<Contact | undefined>;
+  getContactByEmail(email: string, companyId: string): Promise<Contact | undefined>;
   getContactsByCompany(companyId: string): Promise<Contact[]>;
   getAllContacts(): Promise<Contact[]>;
   getContactsByGroup(groupId: string): Promise<Contact[]>;
@@ -154,6 +155,50 @@ export class PostgresStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    if (userData.email) {
+      const existingUserByEmail = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.email, userData.email))
+        .limit(1);
+      
+      if (existingUserByEmail.length > 0) {
+        const existing = existingUserByEmail[0];
+        const [updated] = await db.update(schema.users)
+          .set({
+            replitUserId: userData.replitUserId ?? existing.replitUserId,
+            firstName: userData.firstName ?? existing.firstName,
+            lastName: userData.lastName ?? existing.lastName,
+            profileImageUrl: userData.profileImageUrl ?? existing.profileImageUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.users.id, existing.id))
+          .returning();
+        return updated;
+      }
+    }
+    
+    if (userData.replitUserId) {
+      const existingUserByReplitId = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.replitUserId, userData.replitUserId))
+        .limit(1);
+      
+      if (existingUserByReplitId.length > 0) {
+        const existing = existingUserByReplitId[0];
+        const [updated] = await db.update(schema.users)
+          .set({
+            email: userData.email ?? existing.email,
+            firstName: userData.firstName ?? existing.firstName,
+            lastName: userData.lastName ?? existing.lastName,
+            profileImageUrl: userData.profileImageUrl ?? existing.profileImageUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.users.id, existing.id))
+          .returning();
+        return updated;
+      }
+    }
+    
     const [user] = await db
       .insert(schema.users)
       .values({
@@ -162,16 +207,6 @@ export class PostgresStorage implements IStorage {
         firstName: userData.firstName ?? undefined,
         lastName: userData.lastName ?? undefined,
         profileImageUrl: userData.profileImageUrl ?? undefined,
-      })
-      .onConflictDoUpdate({
-        target: schema.users.replitUserId,
-        set: {
-          email: userData.email ?? undefined,
-          firstName: userData.firstName ?? undefined,
-          lastName: userData.lastName ?? undefined,
-          profileImageUrl: userData.profileImageUrl ?? undefined,
-          updatedAt: new Date(),
-        },
       })
       .returning();
     return user;
@@ -316,6 +351,15 @@ export class PostgresStorage implements IStorage {
   // Contacts
   async getContact(id: string): Promise<Contact | undefined> {
     const [contact] = await db.select().from(schema.contacts).where(eq(schema.contacts.id, id));
+    return contact;
+  }
+
+  async getContactByEmail(email: string, companyId: string): Promise<Contact | undefined> {
+    const [contact] = await db.select().from(schema.contacts)
+      .where(and(
+        eq(schema.contacts.email, email),
+        eq(schema.contacts.companyId, companyId)
+      ));
     return contact;
   }
 

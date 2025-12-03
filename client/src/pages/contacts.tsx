@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Users, Upload, Download, MoreHorizontal, Edit, Trash2, Mail, UserCheck, UserX, FolderPlus } from "lucide-react";
+import { Plus, Search, Users, Upload, Download, MoreHorizontal, Edit, Trash2, Mail, UserCheck, UserX, FolderPlus, FileText, Loader2, Check, AlertCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import type { Contact, ContactGroup } from "@shared/schema";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { parseCSV, type ParsedContact } from "@/lib/csv-utils";
 
 const contactFormSchema = z.object({
   email: z.string().email("Введите корректный email"),
@@ -41,7 +44,12 @@ export default function Contacts() {
   const [activeTab, setActiveTab] = useState("contacts");
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [csvText, setCsvText] = useState("");
+  const [importGroupId, setImportGroupId] = useState<string>("");
+  const [parsedContacts, setParsedContacts] = useState<ParsedContact[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
@@ -98,6 +106,60 @@ export default function Contacts() {
     },
   });
 
+  const importContactsMutation = useMutation({
+    mutationFn: (data: { contacts: ParsedContact[]; groupId?: string }) => 
+      apiRequest("POST", "/api/contacts/import", data),
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      setIsImportDialogOpen(false);
+      setCsvText("");
+      setParsedContacts([]);
+      setImportGroupId("");
+      toast({ 
+        title: "Импорт завершён",
+        description: `Импортировано: ${result.imported}, пропущено: ${result.skipped}`
+      });
+    },
+    onError: () => {
+      toast({ title: "Ошибка импорта", variant: "destructive" });
+    },
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setCsvText(text);
+      const parsed = parseCSV(text);
+      setParsedContacts(parsed);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCsvPaste = (text: string) => {
+    setCsvText(text);
+    const parsed = parseCSV(text);
+    setParsedContacts(parsed);
+  };
+
+  const handleImport = () => {
+    if (parsedContacts.length === 0) {
+      toast({ title: "Нет данных для импорта", variant: "destructive" });
+      return;
+    }
+    importContactsMutation.mutate({ 
+      contacts: parsedContacts, 
+      groupId: importGroupId && importGroupId !== "__none__" ? importGroupId : undefined 
+    });
+  };
+
+  const handleExport = () => {
+    window.open("/api/contacts/export", "_blank");
+  };
+
   const filteredContacts = contacts?.filter(contact => 
     contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,10 +182,112 @@ export default function Contacts() {
           <p className="text-muted-foreground mt-1">Управление контактами и группами рассылки</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" data-testid="button-import-contacts">
-            <Upload className="w-4 h-4 mr-2" />
-            Импорт CSV
+          <Button variant="outline" onClick={handleExport} data-testid="button-export-contacts">
+            <Download className="w-4 h-4 mr-2" />
+            Экспорт CSV
           </Button>
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-import-contacts">
+                <Upload className="w-4 h-4 mr-2" />
+                Импорт CSV
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Импорт контактов из CSV
+                </DialogTitle>
+                <DialogDescription>
+                  Загрузите CSV файл или вставьте данные. Формат: email, firstName, lastName
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Загрузить файл CSV</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept=".csv,.txt"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="flex-1"
+                      data-testid="input-import-file"
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-center text-muted-foreground">или</div>
+                
+                <div className="space-y-2">
+                  <Label>Вставить данные CSV</Label>
+                  <Textarea
+                    placeholder="email,firstName,lastName&#10;test@example.com,Иван,Иванов&#10;user@example.com,Петр,Петров"
+                    value={csvText}
+                    onChange={(e) => handleCsvPaste(e.target.value)}
+                    rows={5}
+                    data-testid="textarea-import-csv"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Группа (опционально)</Label>
+                  <Select value={importGroupId} onValueChange={setImportGroupId}>
+                    <SelectTrigger data-testid="select-import-group">
+                      <SelectValue placeholder="Без группы" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Без группы</SelectItem>
+                      {groups?.map(group => (
+                        <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {parsedContacts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      <span>Найдено контактов: {parsedContacts.length}</span>
+                    </div>
+                    <div className="border rounded-lg p-2 max-h-32 overflow-auto text-xs">
+                      {parsedContacts.slice(0, 5).map((c, i) => (
+                        <div key={i} className="py-1 border-b last:border-0">
+                          {c.email} {c.firstName || ''} {c.lastName || ''}
+                        </div>
+                      ))}
+                      {parsedContacts.length > 5 && (
+                        <div className="py-1 text-muted-foreground">
+                          ... и ещё {parsedContacts.length - 5} контактов
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">Отмена</Button>
+                </DialogClose>
+                <Button 
+                  onClick={handleImport} 
+                  disabled={parsedContacts.length === 0 || importContactsMutation.isPending}
+                  data-testid="button-submit-import"
+                >
+                  {importContactsMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  Импортировать {parsedContacts.length > 0 ? `(${parsedContacts.length})` : ''}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-contact">

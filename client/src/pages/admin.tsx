@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -21,6 +22,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -44,10 +46,16 @@ import {
   Eye,
   TrendingUp,
   Loader2,
-  Save
+  Save,
+  Download,
+  Upload,
+  FileText,
+  Check,
+  FileSpreadsheet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { parseCSV, type ParsedContact } from "@/lib/csv-utils";
 
 interface UserWithCompany {
   id: string;
@@ -428,9 +436,15 @@ function EditCompanyDialog({
 }
 
 export default function Admin() {
+  const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<UserWithCompany | null>(null);
   const [changingPassword, setChangingPassword] = useState<UserWithCompany | null>(null);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [importCompanyId, setImportCompanyId] = useState<string>("");
+  const [parsedContacts, setParsedContacts] = useState<ParsedContact[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: users, isLoading: usersLoading } = useQuery<UserWithCompany[]>({
     queryKey: ["/api/admin/users"],
@@ -443,6 +457,71 @@ export default function Admin() {
   const { data: stats, isLoading: statsLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
   });
+
+  const importContactsMutation = useMutation({
+    mutationFn: (data: { contacts: ParsedContact[]; companyId: string }) => 
+      apiRequest("POST", "/api/admin/imports/contacts", data),
+    onSuccess: (result: any) => {
+      setIsImportDialogOpen(false);
+      setCsvText("");
+      setParsedContacts([]);
+      setImportCompanyId("");
+      toast({ 
+        title: "Импорт завершён",
+        description: `Импортировано: ${result.imported}, пропущено: ${result.skipped}`
+      });
+    },
+    onError: () => {
+      toast({ title: "Ошибка импорта", variant: "destructive" });
+    },
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setCsvText(text);
+      const parsed = parseCSV(text);
+      setParsedContacts(parsed);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCsvPaste = (text: string) => {
+    setCsvText(text);
+    const parsed = parseCSV(text);
+    setParsedContacts(parsed);
+  };
+
+  const handleImport = () => {
+    if (parsedContacts.length === 0) {
+      toast({ title: "Нет данных для импорта", variant: "destructive" });
+      return;
+    }
+    if (!importCompanyId) {
+      toast({ title: "Выберите компанию", variant: "destructive" });
+      return;
+    }
+    importContactsMutation.mutate({ 
+      contacts: parsedContacts, 
+      companyId: importCompanyId
+    });
+  };
+
+  const handleExportReports = () => {
+    window.open("/api/admin/exports/reports", "_blank");
+  };
+
+  const handleExportCredentials = () => {
+    window.open("/api/admin/exports/credentials", "_blank");
+  };
+
+  const handleExportUsers = () => {
+    window.open("/api/admin/exports/users", "_blank");
+  };
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -566,6 +645,10 @@ export default function Admin() {
           <TabsTrigger value="stats" className="gap-2" data-testid="tab-stats">
             <BarChart3 className="h-4 w-4" />
             Детальная статистика
+          </TabsTrigger>
+          <TabsTrigger value="export-import" className="gap-2" data-testid="tab-export-import">
+            <FileSpreadsheet className="h-4 w-4" />
+            Экспорт / Импорт
           </TabsTrigger>
         </TabsList>
 
@@ -794,7 +877,180 @@ export default function Admin() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Export/Import Tab */}
+        <TabsContent value="export-import">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Export Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  Экспорт данных
+                </CardTitle>
+                <CardDescription>Скачать отчёты и данные в формате CSV</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={handleExportReports}
+                  data-testid="button-export-reports"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Экспорт отчётов тестирования
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    Все кампании всех компаний
+                  </span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={handleExportCredentials}
+                  data-testid="button-export-credentials"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  Экспорт собранных данных
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    Введённые учётные данные
+                  </span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={handleExportUsers}
+                  data-testid="button-export-users"
+                >
+                  <Users className="h-4 w-4" />
+                  Экспорт списка пользователей
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    Все пользователи и компании
+                  </span>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Import Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Импорт данных
+                </CardTitle>
+                <CardDescription>Загрузить списки контактов для любой компании</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={() => setIsImportDialogOpen(true)}
+                  data-testid="button-open-import-dialog"
+                >
+                  <Mail className="h-4 w-4" />
+                  Импорт контактов
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    CSV: email, firstName, lastName
+                  </span>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Import Contacts Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Импорт контактов
+            </DialogTitle>
+            <DialogDescription>
+              Загрузите CSV файл или вставьте данные. Формат: email, firstName, lastName
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Выберите компанию</Label>
+              <Select value={importCompanyId} onValueChange={setImportCompanyId}>
+                <SelectTrigger data-testid="select-import-company">
+                  <SelectValue placeholder="Выберите компанию" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies?.map(company => (
+                    <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Загрузить файл CSV</Label>
+              <Input
+                type="file"
+                accept=".csv,.txt"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                data-testid="input-admin-import-file"
+              />
+            </div>
+            
+            <div className="text-center text-muted-foreground">или</div>
+            
+            <div className="space-y-2">
+              <Label>Вставить данные CSV</Label>
+              <Textarea
+                placeholder="email,firstName,lastName&#10;test@example.com,Иван,Иванов&#10;user@example.com,Петр,Петров"
+                value={csvText}
+                onChange={(e) => handleCsvPaste(e.target.value)}
+                rows={5}
+                data-testid="textarea-admin-import-csv"
+              />
+            </div>
+
+            {parsedContacts.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span>Найдено контактов: {parsedContacts.length}</span>
+                </div>
+                <div className="border rounded-lg p-2 max-h-32 overflow-auto text-xs">
+                  {parsedContacts.slice(0, 5).map((c, i) => (
+                    <div key={i} className="py-1 border-b last:border-0">
+                      {c.email} {c.firstName || ''} {c.lastName || ''}
+                    </div>
+                  ))}
+                  {parsedContacts.length > 5 && (
+                    <div className="py-1 text-muted-foreground">
+                      ... и ещё {parsedContacts.length - 5} контактов
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Отмена</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleImport} 
+              disabled={parsedContacts.length === 0 || !importCompanyId || importContactsMutation.isPending}
+              data-testid="button-admin-submit-import"
+            >
+              {importContactsMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Импортировать {parsedContacts.length > 0 ? `(${parsedContacts.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       {editingUser && (

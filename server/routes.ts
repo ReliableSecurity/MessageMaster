@@ -1197,6 +1197,225 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import contacts from CSV (regular users - their own company)
+  app.post("/api/contacts/import", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const { contacts: contactsData, groupId } = req.body;
+      
+      if (!Array.isArray(contactsData) || contactsData.length === 0) {
+        return res.status(400).json({ error: "Нет данных для импорта" });
+      }
+      
+      const companyId = dbUser.role === "superadmin" 
+        ? (req.body.companyId || null) 
+        : dbUser.companyId;
+        
+      if (!companyId && dbUser.role !== "superadmin") {
+        return res.status(400).json({ error: "Компания не найдена" });
+      }
+      
+      const results = { imported: 0, skipped: 0, errors: [] as string[] };
+      
+      for (const contactData of contactsData) {
+        try {
+          const email = contactData.email?.trim().toLowerCase();
+          if (!email || !email.includes("@")) {
+            results.skipped++;
+            continue;
+          }
+          
+          const existingContact = await storage.getContactByEmail(email, companyId);
+          if (existingContact) {
+            results.skipped++;
+            continue;
+          }
+          
+          await storage.createContact({
+            email,
+            firstName: contactData.firstName || contactData.first_name || null,
+            lastName: contactData.lastName || contactData.last_name || null,
+            companyId,
+            groupId: groupId || null,
+            isSubscribed: true,
+          });
+          results.imported++;
+        } catch (err) {
+          results.errors.push(`Ошибка для ${contactData.email}: ${(err as Error).message}`);
+        }
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Import contacts error:", error);
+      res.status(500).json({ error: "Ошибка импорта контактов" });
+    }
+  });
+
+  // Export contacts to CSV (regular users - their own company)
+  app.get("/api/contacts/export", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const companyId = dbUser.role === "superadmin" 
+        ? (req.query.companyId as string || null)
+        : dbUser.companyId;
+        
+      const contacts = companyId 
+        ? await storage.getContactsByCompany(companyId)
+        : await storage.getAllContacts();
+      
+      const csvHeader = "email,firstName,lastName,isSubscribed,createdAt\n";
+      const csvRows = contacts.map(c => 
+        `"${c.email}","${c.firstName || ''}","${c.lastName || ''}","${c.isSubscribed ? 'yes' : 'no'}","${c.createdAt}"`
+      ).join("\n");
+      
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=contacts_export.csv");
+      res.send("\uFEFF" + csvHeader + csvRows);
+    } catch (error) {
+      console.error("Export contacts error:", error);
+      res.status(500).json({ error: "Ошибка экспорта контактов" });
+    }
+  });
+
+  // Superadmin: Export all campaign reports (global)
+  app.get("/api/admin/exports/reports", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const campaigns = await storage.getAllCampaigns();
+      const companies = await storage.getAllCompanies();
+      const users = await storage.getAllUsers();
+      
+      const csvHeader = "companyName,campaignName,campaignStatus,sentCount,openedCount,clickedCount,submittedDataCount,openRate,clickRate,submitRate,createdAt\n";
+      const csvRows = campaigns.map(c => {
+        const company = companies.find(co => co.id === c.companyId);
+        const openRate = c.sentCount > 0 ? Math.round((c.openedCount / c.sentCount) * 100) : 0;
+        const clickRate = c.sentCount > 0 ? Math.round((c.clickedCount / c.sentCount) * 100) : 0;
+        const submitRate = c.sentCount > 0 ? Math.round(((c.submittedDataCount || 0) / c.sentCount) * 100) : 0;
+        return `"${company?.name || ''}","${c.name}","${c.status}",${c.sentCount},${c.openedCount},${c.clickedCount},${c.submittedDataCount || 0},${openRate}%,${clickRate}%,${submitRate}%,"${c.createdAt}"`;
+      }).join("\n");
+      
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=campaigns_report.csv");
+      res.send("\uFEFF" + csvHeader + csvRows);
+    } catch (error) {
+      console.error("Export reports error:", error);
+      res.status(500).json({ error: "Ошибка экспорта отчетов" });
+    }
+  });
+
+  // Superadmin: Export collected credentials data
+  app.get("/api/admin/exports/credentials", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const campaigns = await storage.getAllCampaigns();
+      const companies = await storage.getAllCompanies();
+      let allData: any[] = [];
+      
+      for (const campaign of campaigns) {
+        const collectedData = await storage.getCollectedDataByCampaign(campaign.id);
+        const company = companies.find(co => co.id === campaign.companyId);
+        
+        for (const data of collectedData) {
+          allData.push({
+            ...data,
+            campaignName: campaign.name,
+            companyName: company?.name || ''
+          });
+        }
+      }
+      
+      const csvHeader = "companyName,campaignName,recipientEmail,submittedData,ipAddress,userAgent,submittedAt\n";
+      const csvRows = allData.map(d => {
+        const submittedData = typeof d.submittedData === 'object' 
+          ? JSON.stringify(d.submittedData).replace(/"/g, '""')
+          : String(d.submittedData || '');
+        return `"${d.companyName}","${d.campaignName}","${d.recipientEmail || ''}","${submittedData}","${d.ipAddress || ''}","${(d.userAgent || '').replace(/"/g, '""')}","${d.createdAt}"`;
+      }).join("\n");
+      
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=collected_credentials.csv");
+      res.send("\uFEFF" + csvHeader + csvRows);
+    } catch (error) {
+      console.error("Export credentials error:", error);
+      res.status(500).json({ error: "Ошибка экспорта данных" });
+    }
+  });
+
+  // Superadmin: Export all users data
+  app.get("/api/admin/exports/users", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const companies = await storage.getAllCompanies();
+      
+      const csvHeader = "email,firstName,lastName,role,companyName,isActive,createdAt\n";
+      const csvRows = users.map(u => {
+        const company = companies.find(c => c.id === u.companyId);
+        return `"${u.email}","${u.firstName || ''}","${u.lastName || ''}","${u.role}","${company?.name || ''}","${u.isActive ? 'yes' : 'no'}","${u.createdAt}"`;
+      }).join("\n");
+      
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=users_export.csv");
+      res.send("\uFEFF" + csvHeader + csvRows);
+    } catch (error) {
+      console.error("Export users error:", error);
+      res.status(500).json({ error: "Ошибка экспорта пользователей" });
+    }
+  });
+
+  // Superadmin: Import contacts for a specific company
+  app.post("/api/admin/imports/contacts", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const { contacts: contactsData, companyId, groupId } = req.body;
+      
+      if (!Array.isArray(contactsData) || contactsData.length === 0) {
+        return res.status(400).json({ error: "Нет данных для импорта" });
+      }
+      
+      if (!companyId) {
+        return res.status(400).json({ error: "Компания не указана" });
+      }
+      
+      const company = await storage.getCompany(companyId);
+      if (!company) {
+        return res.status(404).json({ error: "Компания не найдена" });
+      }
+      
+      const results = { imported: 0, skipped: 0, errors: [] as string[] };
+      
+      for (const contactData of contactsData) {
+        try {
+          const email = contactData.email?.trim().toLowerCase();
+          if (!email || !email.includes("@")) {
+            results.skipped++;
+            continue;
+          }
+          
+          const existingContact = await storage.getContactByEmail(email, companyId);
+          if (existingContact) {
+            results.skipped++;
+            continue;
+          }
+          
+          await storage.createContact({
+            email,
+            firstName: contactData.firstName || contactData.first_name || null,
+            lastName: contactData.lastName || contactData.last_name || null,
+            companyId,
+            groupId: groupId || null,
+            isSubscribed: true,
+          });
+          results.imported++;
+        } catch (err) {
+          results.errors.push(`Ошибка для ${contactData.email}: ${(err as Error).message}`);
+        }
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Admin import contacts error:", error);
+      res.status(500).json({ error: "Ошибка импорта контактов" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

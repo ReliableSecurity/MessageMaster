@@ -4,6 +4,12 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Added CSV import/export functionality for contacts
+  - Regular users: Import contacts via CSV on /contacts page, export all contacts
+  - Superadmin: Import contacts for any company via Admin panel Export/Import tab
+  - Export options: Reports, collected credentials, users list
+  - Shared CSV parser (client/src/lib/csv-utils.ts) with BOM handling and delimiter detection
+- **2025-12-03**: Fixed upsertUser to handle email conflicts when local user logs in via Replit OAuth
 - **2025-12-03**: Added Admin Panel (/admin) for superadmin with user management, company management, and global statistics
 - **2025-12-03**: Added API endpoints for superadmin: /api/admin/users, /api/admin/stats, /api/users/:id/change-password
 - **2025-12-03**: Updated sidebar branding to PhishGuard with shield icon
