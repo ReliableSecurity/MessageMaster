@@ -4,6 +4,11 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Removed Replit OAuth authentication
+  - Simplified to local email/password authentication only
+  - Created server/auth.ts with session-based auth middleware
+  - Removed replitAuth.ts and openid-client/passport dependencies
+  - Updated landing page to show only email/password login form
 - **2025-12-03**: Added comprehensive multi-tenant resource ownership validation
   - POST/PATCH /api/campaigns validates that templateId, emailServiceId, contactGroupId, landingPageId belong to campaign's company
   - Campaign launch re-validates all resource ownership before sending
@@ -97,16 +102,15 @@ Multi-tenant SaaS platform for phishing simulation and security awareness testin
 ## Project Architecture
 
 ### Authentication
-- Uses Replit Auth via OpenID Connect (primary)
-- Local authentication via email/password (secondary)
+- Local authentication via email/password only
   - POST `/api/auth/register` - creates new user with company
   - POST `/api/auth/login` - authenticates via email/password
+  - GET `/api/logout` - destroys session and redirects to home
   - Passwords hashed with bcrypt (10 rounds)
 - Session storage in PostgreSQL (sessions table)
 - Roles: superadmin, admin, manager, viewer
   - viewer: read-only access to assigned campaigns only
-- Auth routes: `/api/login`, `/api/logout`, `/api/callback`
-- Protected API routes use `isAuthenticated` middleware
+- Protected API routes use `isAuthenticated` middleware from server/auth.ts
 
 ### Database Schema
 - **users**: User accounts with replitUserId for Replit Auth, password hash for local auth, viewerParentId for viewer accounts
@@ -123,7 +127,7 @@ Multi-tenant SaaS platform for phishing simulation and security awareness testin
 - **viewerCampaignAccess**: Links viewers to specific campaigns they can access
 
 ### Key Files
-- `server/replitAuth.ts`: Replit Auth configuration
+- `server/auth.ts`: Session-based authentication middleware
 - `server/routes.ts`: API endpoints
 - `server/storage.ts`: Database operations
 - `shared/schema.ts`: Drizzle ORM schema

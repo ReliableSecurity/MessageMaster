@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, requireRole, requireViewerCampaignAccess, isReadOnlyForViewer } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireRole, requireViewerCampaignAccess, isReadOnlyForViewer } from "./auth";
 import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertLandingPageSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -9,22 +9,17 @@ import { sendCampaignEmail, testSmtpConnection, sendTestEmail } from "./emailSer
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Setup Replit Auth
+  // Setup session-based authentication
   await setupAuth(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      // Check for local auth user (already has dbUser set by isAuthenticated)
-      if (req.user?.localAuth && req.dbUser) {
+      if (req.dbUser) {
         const { password: _, ...userWithoutPassword } = req.dbUser;
         return res.json(userWithoutPassword);
       }
-      
-      // Replit OAuth user
-      const replitUserId = req.user.claims.sub;
-      const user = await storage.getUserByReplitId(replitUserId);
-      res.json(user);
+      res.status(401).json({ message: "Unauthorized" });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
