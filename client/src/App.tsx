@@ -29,6 +29,7 @@ import Contacts from "@/pages/contacts";
 import Team from "@/pages/team";
 import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
+import Admin from "@/pages/admin";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -46,6 +47,7 @@ function AuthenticatedRouter() {
       <Route path="/team" component={Team} />
       <Route path="/analytics" component={Analytics} />
       <Route path="/settings" component={Settings} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

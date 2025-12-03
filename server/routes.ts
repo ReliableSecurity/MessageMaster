@@ -293,6 +293,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Change user password (superadmin only)
+  const changePasswordSchema = z.object({
+    newPassword: z.string().min(6, "Пароль должен быть минимум 6 символов"),
+  });
+
+  app.post("/api/users/:id/change-password", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const existingUser = await storage.getUser(req.params.id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const data = changePasswordSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+      
+      await storage.updateUser(req.params.id, { password: hashedPassword });
+      res.json({ message: "Пароль успешно изменён" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "Ошибка изменения пароля" });
+    }
+  });
+
+  // Superadmin: Get all users with companies (for admin panel)
+  app.get("/api/admin/users", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const companies = await storage.getAllCompanies();
+      
+      const usersWithCompanies = users.map(user => {
+        const company = companies.find(c => c.id === user.companyId);
+        const { password: _, ...userWithoutPassword } = user;
+        return {
+          ...userWithoutPassword,
+          company: company || null,
+        };
+      });
+      
+      res.json(usersWithCompanies);
+    } catch (error) {
+      console.error("Admin users error:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Superadmin: Get comprehensive statistics
+  app.get("/api/admin/stats", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const companies = await storage.getAllCompanies();
+      const campaigns = await storage.getAllCampaigns();
+      const contacts = await storage.getAllContacts();
+      
+      // Calculate statistics per company
+      const companyStats = companies.map(company => {
+        const companyUsers = users.filter(u => u.companyId === company.id);
+        const companyCampaigns = campaigns.filter(c => c.companyId === company.id);
+        const companyContacts = contacts.filter(c => c.companyId === company.id);
+        
+        const totalSent = companyCampaigns.reduce((sum, c) => sum + (c.sentCount || 0), 0);
+        const totalOpened = companyCampaigns.reduce((sum, c) => sum + (c.openedCount || 0), 0);
+        const totalClicked = companyCampaigns.reduce((sum, c) => sum + (c.clickedCount || 0), 0);
+        const totalSubmitted = companyCampaigns.reduce((sum, c) => sum + (c.submittedDataCount || 0), 0);
+        
+        return {
+          company,
+          usersCount: companyUsers.length,
+          campaignsCount: companyCampaigns.length,
+          contactsCount: companyContacts.length,
+          stats: {
+            sent: totalSent,
+            opened: totalOpened,
+            clicked: totalClicked,
+            submitted: totalSubmitted,
+          },
+        };
+      });
+      
+      // User statistics
+      const userStats = await Promise.all(users.map(async (user) => {
+        const userCampaigns = campaigns.filter(c => c.companyId === user.companyId);
+        const company = companies.find(c => c.id === user.companyId);
+        
+        const totalSent = userCampaigns.reduce((sum, c) => sum + (c.sentCount || 0), 0);
+        const totalOpened = userCampaigns.reduce((sum, c) => sum + (c.openedCount || 0), 0);
+        const totalClicked = userCampaigns.reduce((sum, c) => sum + (c.clickedCount || 0), 0);
+        const totalSubmitted = userCampaigns.reduce((sum, c) => sum + (c.submittedDataCount || 0), 0);
+        
+        const { password: _, ...userWithoutPassword } = user;
+        
+        return {
+          user: userWithoutPassword,
+          companyName: company?.name || 'Без компании',
+          campaignsCount: userCampaigns.length,
+          stats: {
+            sent: totalSent,
+            opened: totalOpened,
+            clicked: totalClicked,
+            submitted: totalSubmitted,
+          },
+        };
+      }));
+      
+      // Total statistics
+      const totalStats = {
+        totalUsers: users.length,
+        totalCompanies: companies.length,
+        totalCampaigns: campaigns.length,
+        totalContacts: contacts.length,
+        totalSent: campaigns.reduce((sum, c) => sum + (c.sentCount || 0), 0),
+        totalOpened: campaigns.reduce((sum, c) => sum + (c.openedCount || 0), 0),
+        totalClicked: campaigns.reduce((sum, c) => sum + (c.clickedCount || 0), 0),
+        totalSubmitted: campaigns.reduce((sum, c) => sum + (c.submittedDataCount || 0), 0),
+      };
+      
+      res.json({
+        totalStats,
+        companyStats,
+        userStats,
+      });
+    } catch (error) {
+      console.error("Admin stats error:", error);
+      res.status(500).json({ error: "Failed to fetch admin stats" });
+    }
+  });
+
   // Templates API
   app.get("/api/templates", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {

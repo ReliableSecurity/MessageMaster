@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, FileText, Users, Settings, BarChart3, Server, User, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Mail, FileText, Users, Settings, BarChart3, Server, User, MessageSquare, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -24,6 +24,7 @@ interface AppSidebarProps {
 
 const superadminItems = [
   { title: "Главная", url: "/", icon: LayoutDashboard },
+  { title: "Админ-панель", url: "/admin", icon: Shield },
   { title: "Компании", url: "/companies", icon: Users },
   { title: "Email сервисы", url: "/services", icon: Server },
   { title: "Шаблоны", url: "/global-templates", icon: FileText },
@@ -59,10 +60,10 @@ export function AppSidebar({ role, userInitials = "U", userName = "Пользо�
       <SidebarHeader className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center">
-            <Mail className="w-5 h-5 text-sidebar-primary-foreground" />
+            <Shield className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
           <div className="flex-1">
-            <h2 className="text-base font-semibold text-sidebar-foreground">EmailFlow</h2>
+            <h2 className="text-base font-semibold text-sidebar-foreground">PhishGuard</h2>
           </div>
         </div>
         <div className="mt-4">
