@@ -15,7 +15,7 @@ export const sessions = pgTable(
 );
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["superadmin", "admin", "manager"]);
+export const userRoleEnum = pgEnum("user_role", ["superadmin", "admin", "manager", "viewer"]);
 export const campaignStatusEnum = pgEnum("campaign_status", ["draft", "scheduled", "sending", "sent", "paused", "cancelled"]);
 export const emailServiceProviderEnum = pgEnum("email_service_provider", ["sendgrid", "mailgun", "aws-ses", "resend", "smtp"]);
 export const emailEventTypeEnum = pgEnum("email_event_type", ["sent", "delivered", "opened", "clicked", "bounced", "complained", "unsubscribed"]);
@@ -34,11 +34,13 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   role: userRoleEnum("role").notNull().default("manager"),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+  viewerParentId: uuid("viewer_parent_id"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
   companyIdIdx: index("users_company_id_idx").on(table.companyId),
+  viewerParentIdIdx: index("users_viewer_parent_id_idx").on(table.viewerParentId),
 }));
 
 // Companies table
@@ -238,6 +240,19 @@ export const collectedData = pgTable("collected_data", {
   statusIdx: index("collected_data_status_idx").on(table.status),
 }));
 
+// Viewer Campaign Access table (for viewer role campaign-specific permissions)
+export const viewerCampaignAccess = pgTable("viewer_campaign_access", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  viewerUserId: uuid("viewer_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  grantedByUserId: uuid("granted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  viewerCampaignUnique: uniqueIndex("viewer_campaign_unique_idx").on(table.viewerUserId, table.campaignId),
+  viewerUserIdIdx: index("viewer_campaign_access_viewer_user_id_idx").on(table.viewerUserId),
+  campaignIdIdx: index("viewer_campaign_access_campaign_id_idx").on(table.campaignId),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -325,6 +340,20 @@ export const insertCollectedDataSchema = createInsertSchema(collectedData).omit(
   createdAt: true,
 });
 
+export const insertViewerCampaignAccessSchema = createInsertSchema(viewerCampaignAccess).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Schema for creating a viewer account
+export const createViewerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  campaignIds: z.array(z.string().uuid()).optional(),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -367,3 +396,7 @@ export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
 
 export type CollectedData = typeof collectedData.$inferSelect;
 export type InsertCollectedData = z.infer<typeof insertCollectedDataSchema>;
+
+export type ViewerCampaignAccess = typeof viewerCampaignAccess.$inferSelect;
+export type InsertViewerCampaignAccess = z.infer<typeof insertViewerCampaignAccessSchema>;
+export type CreateViewer = z.infer<typeof createViewerSchema>;
