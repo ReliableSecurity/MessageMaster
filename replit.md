@@ -1,9 +1,11 @@
-# MailFlow - Email Campaign Management Platform
+# PhishGuard - Security Awareness Testing Platform
 
 ## Overview
-Multi-tenant SaaS platform for managing email campaigns with phishing simulation capabilities (similar to GoPhish). Companies can create campaigns using templates, send mass mailings, and track recipient engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
+Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Rebranded to PhishGuard - landing page redesigned for phishing simulation / pentesting service
+- **2025-12-03**: Created superadmin account (admin@mailflow.ru)
 - **2025-12-03**: Fixed database connection - storage.ts now uses shared db from db.ts with proper Neon WebSocket config
 - **2025-12-03**: Updated isAuthenticated middleware to support both local session and Replit OAuth
 - **2025-12-03**: Auto-login after registration - users are automatically logged in after registering
