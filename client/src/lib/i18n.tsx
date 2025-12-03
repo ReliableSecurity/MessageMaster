@@ -226,6 +226,19 @@ const translations = {
     "settings.monthlyLimit": "Месячный лимит",
     "settings.increaseLimit": "Увеличить лимит",
     
+    // Notifications
+    "notifications.title": "Уведомления",
+    "notifications.subtitle": "Последние события кампаний",
+    "notifications.empty": "Нет новых уведомлений",
+    "notifications.emailOpened": "Письмо открыто",
+    "notifications.linkClicked": "Клик по ссылке",
+    "notifications.credentialsSubmitted": "Данные отправлены",
+    "notifications.newEvent": "Новое событие",
+    "notifications.justNow": "Только что",
+    "notifications.minutesAgo": "мин. назад",
+    "notifications.hoursAgo": "ч. назад",
+    "notifications.daysAgo": "дн. назад",
+    
     // Viewers
     "viewers.title": "Просмотрщики",
     "viewers.subtitle": "Аккаунты с доступом только к статистике",
@@ -494,6 +507,19 @@ const translations = {
     "settings.dailyLimit": "Daily Limit",
     "settings.monthlyLimit": "Monthly Limit",
     "settings.increaseLimit": "Increase Limit",
+    
+    // Notifications
+    "notifications.title": "Notifications",
+    "notifications.subtitle": "Recent campaign events",
+    "notifications.empty": "No new notifications",
+    "notifications.emailOpened": "Email opened",
+    "notifications.linkClicked": "Link clicked",
+    "notifications.credentialsSubmitted": "Credentials submitted",
+    "notifications.newEvent": "New event",
+    "notifications.justNow": "Just now",
+    "notifications.minutesAgo": "min ago",
+    "notifications.hoursAgo": "h ago",
+    "notifications.daysAgo": "d ago",
     
     // Viewers
     "viewers.title": "Viewers",

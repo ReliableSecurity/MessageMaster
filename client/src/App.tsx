@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeProvider } from "@/lib/theme";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, LogOut, Loader2 } from "lucide-react";
+import { Bell, LogOut, Loader2, Mail, MousePointer, Eye, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +21,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useQuery } from "@tanstack/react-query";
+import type { EmailEvent } from "@shared/schema";
 import Dashboard from "@/pages/dashboard";
 import Templates from "@/pages/templates";
 import SendingProfiles from "@/pages/sending-profiles";
@@ -52,12 +60,60 @@ function AuthenticatedRouter() {
   );
 }
 
+function NotificationItem({ event }: { event: EmailEvent }) {
+  const { t } = useLanguage();
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case "open": return <Eye className="w-4 h-4 text-blue-500" />;
+      case "click": return <MousePointer className="w-4 h-4 text-green-500" />;
+      case "submit": return <KeyRound className="w-4 h-4 text-red-500" />;
+      default: return <Mail className="w-4 h-4 text-muted-foreground" />;
+    }
+  };
+
+  const getEventText = (type: string) => {
+    switch (type) {
+      case "open": return t("notifications.emailOpened");
+      case "click": return t("notifications.linkClicked");
+      case "submit": return t("notifications.credentialsSubmitted");
+      default: return t("notifications.newEvent");
+    }
+  };
+
+  const timeAgo = (date: Date) => {
+    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return t("notifications.justNow");
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} ${t("notifications.minutesAgo")}`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} ${t("notifications.hoursAgo")}`;
+    return `${Math.floor(seconds / 86400)} ${t("notifications.daysAgo")}`;
+  };
+
+  return (
+    <div className="flex items-start gap-3 p-3 hover-elevate rounded-md cursor-pointer">
+      {getEventIcon(event.eventType)}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{getEventText(event.eventType)}</p>
+        <p className="text-xs text-muted-foreground truncate">ID: {event.trackingId.slice(0, 8)}...</p>
+        <p className="text-xs text-muted-foreground">{timeAgo(event.createdAt)}</p>
+      </div>
+    </div>
+  );
+}
+
 function AuthenticatedApp() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const style = {
     "--sidebar-width": "16rem",
   };
+
+  const { data: events = [] } = useQuery<EmailEvent[]>({
+    queryKey: ["/api/email-events"],
+    refetchInterval: 30000,
+  });
+
+  const recentEvents = events.slice(0, 10);
+  const unreadCount = Math.min(events.length, 99);
 
   const userInitials = user 
     ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'U'
@@ -82,12 +138,38 @@ function AuthenticatedApp() {
               <SidebarTrigger data-testid="button-sidebar-toggle" />
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
-                <Bell className="w-5 h-5" />
-                <Badge className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center p-0 text-xs">
-                  3
-                </Badge>
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center p-0 text-xs">
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0" align="end">
+                  <div className="p-4 border-b">
+                    <h4 className="font-semibold">{t("notifications.title")}</h4>
+                    <p className="text-sm text-muted-foreground">{t("notifications.subtitle")}</p>
+                  </div>
+                  <ScrollArea className="h-80">
+                    {recentEvents.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">{t("notifications.empty")}</p>
+                      </div>
+                    ) : (
+                      <div className="p-2">
+                        {recentEvents.map((event) => (
+                          <NotificationItem key={event.id} event={event} />
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
               <ThemeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
