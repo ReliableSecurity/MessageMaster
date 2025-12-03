@@ -33,9 +33,9 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Response Details</SheetTitle>
+          <SheetTitle>Детали отклика</SheetTitle>
           <SheetDescription>
-            Detailed information about this recipient's interaction
+            Подробная информация о взаимодействии получателя
           </SheetDescription>
         </SheetHeader>
 
@@ -43,7 +43,7 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <User className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Recipient</span>
+              <span className="font-medium">Получатель</span>
             </div>
             <div className="pl-6">
               <p className="font-medium">{response.recipientName}</p>
@@ -56,7 +56,7 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <Mail className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Campaign</span>
+              <span className="font-medium">Кампания</span>
             </div>
             <div className="pl-6">
               <p className="text-sm">{response.campaignName}</p>
@@ -68,13 +68,13 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <Tag className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Type</span>
+              <span className="font-medium">Тип</span>
             </div>
             <div className="pl-6">
               <Badge>
-                {response.type === "reply" && "Email Reply"}
-                {response.type === "click" && "Link Click"}
-                {response.type === "form-submit" && "Form Submit"}
+                {response.type === "reply" && "Ответ на email"}
+                {response.type === "click" && "Переход по ссылке"}
+                {response.type === "form-submit" && "Отправка формы"}
               </Badge>
             </div>
           </div>
@@ -84,7 +84,7 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Date</span>
+              <span className="font-medium">Дата</span>
             </div>
             <div className="pl-6">
               <p className="text-sm text-muted-foreground">{response.responseDate}</p>
@@ -95,7 +95,7 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
             <>
               <Separator />
               <div className="space-y-3">
-                <p className="text-sm font-medium">Reply Content</p>
+                <p className="text-sm font-medium">Содержание ответа</p>
                 <div className="p-4 bg-muted rounded-md">
                   <p className="text-sm whitespace-pre-wrap">{response.content}</p>
                 </div>
@@ -107,7 +107,7 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
             <>
               <Separator />
               <div className="space-y-3">
-                <p className="text-sm font-medium">Clicked URL</p>
+                <p className="text-sm font-medium">Нажатая ссылка</p>
                 <a
                   href={response.clickedUrl}
                   target="_blank"
@@ -125,7 +125,7 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
             <>
               <Separator />
               <div className="space-y-3">
-                <p className="text-sm font-medium">Submitted Data</p>
+                <p className="text-sm font-medium">Отправленные данные</p>
                 <div className="space-y-2">
                   {Object.entries(response.formData).map(([key, value]) => (
                     <div key={key} className="flex justify-between gap-4 text-sm">
@@ -142,10 +142,10 @@ export function ResponseDetailSheet({ open, onOpenChange, response }: ResponseDe
 
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => console.log('Flag response')}>
-              Flag
+              Пометить
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => console.log('Archive response')}>
-              Archive
+              Архивировать
             </Button>
           </div>
         </div>

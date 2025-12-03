@@ -1,15 +1,811 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
+import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  
+  // Setup Replit Auth
+  await setupAuth(app);
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const replitUserId = req.user.claims.sub;
+      const user = await storage.getUserByReplitId(replitUserId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Companies API (superadmin only)
+  app.get("/api/companies", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      res.json(companies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch companies" });
+    }
+  });
+
+  app.get("/api/companies/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const company = await storage.getCompany(req.params.id);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      if (dbUser.role !== "superadmin" && company.id !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(company);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch company" });
+    }
+  });
+
+  app.post("/api/companies", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const data = insertCompanySchema.parse(req.body);
+      const company = await storage.createCompany(data);
+      res.status(201).json(company);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create company" });
+    }
+  });
+
+  app.patch("/api/companies/:id", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const data = insertCompanySchema.partial().parse(req.body);
+      const company = await storage.updateCompany(req.params.id, data);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      res.json(company);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update company" });
+    }
+  });
+
+  app.delete("/api/companies/:id", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      await storage.deleteCompany(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete company" });
+    }
+  });
+
+  // Users API
+  app.get("/api/users", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const companyId = req.query.companyId as string | undefined;
+      
+      if (dbUser.role === "superadmin") {
+        if (companyId) {
+          const users = await storage.getUsersByCompany(companyId);
+          return res.json(users);
+        }
+        const allCompanies = await storage.getAllCompanies();
+        const allUsers: any[] = [];
+        for (const company of allCompanies) {
+          const companyUsers = await storage.getUsersByCompany(company.id);
+          allUsers.push(...companyUsers);
+        }
+        return res.json(allUsers);
+      }
+      
+      if (dbUser.companyId) {
+        const users = await storage.getUsersByCompany(dbUser.companyId);
+        return res.json(users);
+      }
+      
+      res.json([]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/users/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (dbUser.role !== "superadmin" && user.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  app.post("/api/users", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertUserSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+      }
+      const user = await storage.createUser(data);
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/users/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingUser = await storage.getUser(req.params.id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingUser.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertUserSchema.partial().parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        delete (data as any).companyId;
+      }
+      const user = await storage.updateUser(req.params.id, data);
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingUser = await storage.getUser(req.params.id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingUser.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteUser(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  // Templates API
+  app.get("/api/templates", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      if (dbUser.role === "superadmin") {
+        const companyId = req.query.companyId as string | null;
+        const templates = await storage.getTemplatesByCompany(companyId);
+        return res.json(templates);
+      }
+      const templates = await storage.getTemplatesByCompany(dbUser.companyId);
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  app.get("/api/templates/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const template = await storage.getTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      if (dbUser.role !== "superadmin" && template.companyId !== dbUser.companyId && !template.isGlobal) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch template" });
+    }
+  });
+
+  app.post("/api/templates", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertTemplateSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+        data.isGlobal = false;
+      }
+      const template = await storage.createTemplate(data);
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  app.patch("/api/templates/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingTemplate = await storage.getTemplate(req.params.id);
+      if (!existingTemplate) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingTemplate.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertTemplateSchema.partial().parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        delete (data as any).companyId;
+        delete (data as any).isGlobal;
+      }
+      const template = await storage.updateTemplate(req.params.id, data);
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
+  app.delete("/api/templates/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingTemplate = await storage.getTemplate(req.params.id);
+      if (!existingTemplate) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingTemplate.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Contact Groups API
+  app.get("/api/contact-groups", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      if (dbUser.role === "superadmin") {
+        const companyId = req.query.companyId as string;
+        if (!companyId) {
+          return res.json([]);
+        }
+        const groups = await storage.getContactGroupsByCompany(companyId);
+        return res.json(groups);
+      }
+      if (!dbUser.companyId) {
+        return res.json([]);
+      }
+      const groups = await storage.getContactGroupsByCompany(dbUser.companyId);
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch contact groups" });
+    }
+  });
+
+  app.post("/api/contact-groups", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertContactGroupSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+      }
+      const group = await storage.createContactGroup(data);
+      res.status(201).json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create contact group" });
+    }
+  });
+
+  app.patch("/api/contact-groups/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingGroup = await storage.getContactGroup(req.params.id);
+      if (!existingGroup) {
+        return res.status(404).json({ error: "Contact group not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingGroup.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertContactGroupSchema.partial().parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        delete (data as any).companyId;
+      }
+      const group = await storage.updateContactGroup(req.params.id, data);
+      res.json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update contact group" });
+    }
+  });
+
+  app.delete("/api/contact-groups/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingGroup = await storage.getContactGroup(req.params.id);
+      if (!existingGroup) {
+        return res.status(404).json({ error: "Contact group not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingGroup.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteContactGroup(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete contact group" });
+    }
+  });
+
+  // Contacts API
+  app.get("/api/contacts", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      if (dbUser.role === "superadmin") {
+        const companyId = req.query.companyId as string;
+        if (!companyId) {
+          return res.json([]);
+        }
+        const contacts = await storage.getContactsByCompany(companyId);
+        return res.json(contacts);
+      }
+      if (!dbUser.companyId) {
+        return res.json([]);
+      }
+      const contacts = await storage.getContactsByCompany(dbUser.companyId);
+      res.json(contacts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch contacts" });
+    }
+  });
+
+  app.get("/api/contacts/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const contact = await storage.getContact(req.params.id);
+      if (!contact) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+      if (dbUser.role !== "superadmin" && contact.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(contact);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch contact" });
+    }
+  });
+
+  app.post("/api/contacts", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertContactSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+      }
+      const contact = await storage.createContact(data);
+      res.status(201).json(contact);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create contact" });
+    }
+  });
+
+  app.post("/api/contacts/bulk", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const contacts = z.array(insertContactSchema).parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        contacts.forEach((c: any) => { c.companyId = dbUser.companyId; });
+      }
+      const created = await storage.createContactsBulk(contacts);
+      res.status(201).json(created);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create contacts" });
+    }
+  });
+
+  app.patch("/api/contacts/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingContact = await storage.getContact(req.params.id);
+      if (!existingContact) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingContact.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertContactSchema.partial().parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        delete (data as any).companyId;
+      }
+      const contact = await storage.updateContact(req.params.id, data);
+      res.json(contact);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update contact" });
+    }
+  });
+
+  app.delete("/api/contacts/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingContact = await storage.getContact(req.params.id);
+      if (!existingContact) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingContact.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteContact(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete contact" });
+    }
+  });
+
+  // Campaigns API
+  app.get("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      if (dbUser.role === "superadmin") {
+        const companyId = req.query.companyId as string;
+        if (!companyId) {
+          return res.json([]);
+        }
+        const campaigns = await storage.getCampaignsByCompany(companyId);
+        return res.json(campaigns);
+      }
+      if (!dbUser.companyId) {
+        return res.json([]);
+      }
+      const campaigns = await storage.getCampaignsByCompany(dbUser.companyId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch campaigns" });
+    }
+  });
+
+  app.get("/api/campaigns/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch campaign" });
+    }
+  });
+
+  app.post("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertCampaignSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+      }
+      const campaign = await storage.createCampaign(data);
+      res.status(201).json(campaign);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create campaign" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingCampaign = await storage.getCampaign(req.params.id);
+      if (!existingCampaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingCampaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertCampaignSchema.partial().parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        delete (data as any).companyId;
+      }
+      const campaign = await storage.updateCampaign(req.params.id, data);
+      res.json(campaign);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update campaign" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingCampaign = await storage.getCampaign(req.params.id);
+      if (!existingCampaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingCampaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteCampaign(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete campaign" });
+    }
+  });
+
+  // Email Services API
+  app.get("/api/email-services", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      if (dbUser.role === "superadmin") {
+        const companyId = req.query.companyId as string | null;
+        const services = await storage.getEmailServicesByCompany(companyId);
+        return res.json(services);
+      }
+      const services = await storage.getEmailServicesByCompany(dbUser.companyId);
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch email services" });
+    }
+  });
+
+  app.get("/api/email-services/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const service = await storage.getEmailService(req.params.id);
+      if (!service) {
+        return res.status(404).json({ error: "Email service not found" });
+      }
+      if (dbUser.role !== "superadmin" && service.companyId !== dbUser.companyId && !service.isPlatformDefault) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(service);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch email service" });
+    }
+  });
+
+  app.post("/api/email-services", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertEmailServiceSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+        data.isPlatformDefault = false;
+      }
+      const service = await storage.createEmailService(data);
+      res.status(201).json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create email service" });
+    }
+  });
+
+  app.patch("/api/email-services/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingService = await storage.getEmailService(req.params.id);
+      if (!existingService) {
+        return res.status(404).json({ error: "Email service not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingService.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertEmailServiceSchema.partial().parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        delete (data as any).companyId;
+        delete (data as any).isPlatformDefault;
+      }
+      const service = await storage.updateEmailService(req.params.id, data);
+      res.json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update email service" });
+    }
+  });
+
+  app.delete("/api/email-services/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingService = await storage.getEmailService(req.params.id);
+      if (!existingService) {
+        return res.status(404).json({ error: "Email service not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingService.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteEmailService(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete email service" });
+    }
+  });
+
+  // Email Events API (for tracking)
+  app.get("/api/campaigns/:campaignId/events", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const campaign = await storage.getCampaign(req.params.campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const events = await storage.getEmailEventsByCampaign(req.params.campaignId);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch email events" });
+    }
+  });
+
+  app.post("/api/track/open/:trackingId", async (req, res) => {
+    try {
+      res.setHeader("Content-Type", "image/gif");
+      res.send(Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
+    } catch (error) {
+      res.status(500).send();
+    }
+  });
+
+  app.get("/api/track/click/:trackingId", async (req, res) => {
+    try {
+      const url = req.query.url as string;
+      if (url) {
+        res.redirect(url);
+      } else {
+        res.status(400).json({ error: "Missing URL" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to track click" });
+    }
+  });
+
+  // Collected Data API
+  app.get("/api/collected-data", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const campaignId = req.query.campaignId as string;
+      if (!campaignId) {
+        return res.json([]);
+      }
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = await storage.getCollectedDataByCampaign(campaignId);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch collected data" });
+    }
+  });
+
+  app.post("/api/collected-data", async (req, res) => {
+    try {
+      const data = insertCollectedDataSchema.parse(req.body);
+      const created = await storage.createCollectedData(data);
+      res.status(201).json(created);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create collected data" });
+    }
+  });
+
+  app.patch("/api/collected-data/:id/status", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingData = await storage.getCollectedData(req.params.id);
+      if (!existingData) {
+        return res.status(404).json({ error: "Collected data not found" });
+      }
+      const campaign = await storage.getCampaign(existingData.campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const { status, reason } = req.body;
+      const data = await storage.updateCollectedDataStatus(req.params.id, status, reason);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update collected data status" });
+    }
+  });
+
+  app.delete("/api/collected-data/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingData = await storage.getCollectedData(req.params.id);
+      if (!existingData) {
+        return res.status(404).json({ error: "Collected data not found" });
+      }
+      const campaign = await storage.getCampaign(existingData.campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteCollectedData(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete collected data" });
+    }
+  });
+
+  // Dashboard stats
+  app.get("/api/stats", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      let targetCompanyId: string | null;
+      if (dbUser.role === "superadmin") {
+        targetCompanyId = (req.query.companyId as string) || null;
+      } else {
+        targetCompanyId = dbUser.companyId;
+      }
+      res.json({
+        totalCampaigns: 0,
+        totalContacts: 0,
+        totalSent: 0,
+        totalOpened: 0,
+        totalClicked: 0,
+        openRate: 0,
+        clickRate: 0,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }

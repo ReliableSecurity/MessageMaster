@@ -21,6 +21,11 @@ const providerLogos = {
   resend: "RS",
 };
 
+const statusLabels = {
+  active: "Активен",
+  inactive: "Неактивен",
+};
+
 export function EmailServiceCard({
   id,
   name,
@@ -43,7 +48,7 @@ export function EmailServiceCard({
 
   return (
     <Card data-testid={`card-service-${id}`}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-mono font-semibold text-sm">
             {providerLogos[provider]}
@@ -63,24 +68,24 @@ export function EmailServiceCard({
           ) : (
             <XCircle className="w-3 h-3" />
           )}
-          {status}
+          {statusLabels[status]}
         </Badge>
       </CardHeader>
       <CardContent className="space-y-3">
         <div>
-          <p className="text-xs text-muted-foreground mb-1">API Key</p>
+          <p className="text-xs text-muted-foreground mb-1">API Ключ</p>
           <code className="text-xs font-mono bg-muted px-2 py-1 rounded">{apiKeyMasked}</code>
         </div>
         {lastUsed && (
-          <p className="text-xs text-muted-foreground">Last used: {lastUsed}</p>
+          <p className="text-xs text-muted-foreground">Последнее использование: {lastUsed}</p>
         )}
       </CardContent>
       <CardFooter className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={handleConfigure} data-testid={`button-configure-${id}`}>
-          Configure
+          Настроить
         </Button>
         <Button variant="secondary" className="flex-1" onClick={handleTest} data-testid={`button-test-${id}`}>
-          Test Connection
+          Проверить
         </Button>
       </CardFooter>
     </Card>

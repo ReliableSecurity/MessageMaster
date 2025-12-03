@@ -15,7 +15,7 @@ interface StatCardProps {
 export function StatCard({ title, value, icon: Icon, trend, testId }: StatCardProps) {
   return (
     <Card data-testid={testId}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
         <p className="text-sm font-medium text-muted-foreground">{title}</p>
         <Icon className="w-4 h-4 text-muted-foreground" />
       </CardHeader>
@@ -28,7 +28,7 @@ export function StatCard({ title, value, icon: Icon, trend, testId }: StatCardPr
             ) : (
               <TrendingDown className="w-3 h-3" />
             )}
-            <span>{Math.abs(trend.value)}% from last month</span>
+            <span>{Math.abs(trend.value)}% за месяц</span>
           </div>
         )}
       </CardContent>

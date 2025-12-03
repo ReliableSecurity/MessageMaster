@@ -5,6 +5,7 @@ import { eq, and, desc, sql, inArray, or } from "drizzle-orm";
 import type {
   User,
   InsertUser,
+  UpsertUser,
   Company,
   InsertCompany,
   EmailService,
@@ -33,9 +34,11 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByReplitId(replitUserId: string): Promise<User | undefined>;
+  getUsersByCompany(companyId: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
+  upsertUser(user: UpsertUser): Promise<User>;
   
   // Companies
   getCompany(id: string): Promise<Company | undefined>;
@@ -95,6 +98,7 @@ export interface IStorage {
   deleteEmailEvent(id: string): Promise<void>;
   
   // Collected Data
+  getCollectedData(id: string): Promise<CollectedData | undefined>;
   createCollectedData(data: InsertCollectedData): Promise<CollectedData>;
   getCollectedDataByCampaign(campaignId: string): Promise<CollectedData[]>;
   getCollectedDataByCompany(companyId: string): Promise<CollectedData[]>;
@@ -134,6 +138,36 @@ export class PostgresStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(schema.users).where(eq(schema.users.id, id));
+  }
+
+  async getUsersByCompany(companyId: string): Promise<User[]> {
+    return await db.select().from(schema.users)
+      .where(eq(schema.users.companyId, companyId))
+      .orderBy(desc(schema.users.createdAt));
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(schema.users)
+      .values({
+        replitUserId: userData.replitUserId,
+        email: userData.email ?? undefined,
+        firstName: userData.firstName ?? undefined,
+        lastName: userData.lastName ?? undefined,
+        profileImageUrl: userData.profileImageUrl ?? undefined,
+      })
+      .onConflictDoUpdate({
+        target: schema.users.replitUserId,
+        set: {
+          email: userData.email ?? undefined,
+          firstName: userData.firstName ?? undefined,
+          lastName: userData.lastName ?? undefined,
+          profileImageUrl: userData.profileImageUrl ?? undefined,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
   // Companies
@@ -227,13 +261,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async createTemplate(insertTemplate: InsertTemplate): Promise<Template> {
-    const [template] = await db.insert(schema.templates).values(insertTemplate).returning();
+    const [template] = await db.insert(schema.templates).values(insertTemplate as any).returning();
     return template;
   }
 
   async updateTemplate(id: string, insertTemplate: Partial<InsertTemplate>): Promise<Template | undefined> {
     const [template] = await db.update(schema.templates)
-      .set({ ...insertTemplate, updatedAt: new Date() })
+      .set({ ...insertTemplate, updatedAt: new Date() } as any)
       .where(eq(schema.templates.id, id))
       .returning();
     return template;
@@ -256,13 +290,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async createContactGroup(insertGroup: InsertContactGroup): Promise<ContactGroup> {
-    const [group] = await db.insert(schema.contactGroups).values(insertGroup).returning();
+    const [group] = await db.insert(schema.contactGroups).values(insertGroup as any).returning();
     return group;
   }
 
   async updateContactGroup(id: string, insertGroup: Partial<InsertContactGroup>): Promise<ContactGroup | undefined> {
     const [group] = await db.update(schema.contactGroups)
-      .set({ ...insertGroup, updatedAt: new Date() })
+      .set({ ...insertGroup, updatedAt: new Date() } as any)
       .where(eq(schema.contactGroups.id, id))
       .returning();
     return group;
@@ -395,6 +429,11 @@ export class PostgresStorage implements IStorage {
   }
 
   // Collected Data
+  async getCollectedData(id: string): Promise<CollectedData | undefined> {
+    const [data] = await db.select().from(schema.collectedData).where(eq(schema.collectedData.id, id));
+    return data;
+  }
+
   async createCollectedData(insertData: InsertCollectedData): Promise<CollectedData> {
     const [data] = await db.insert(schema.collectedData).values(insertData).returning();
     return data;

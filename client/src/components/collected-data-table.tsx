@@ -29,15 +29,15 @@ interface CollectedDataTableProps {
 }
 
 const statusConfig = {
-  verified: { label: "Verified", variant: "default" as const },
-  pending: { label: "Pending", variant: "secondary" as const },
-  flagged: { label: "Flagged", variant: "destructive" as const },
+  verified: { label: "Проверено", variant: "default" as const },
+  pending: { label: "Ожидание", variant: "secondary" as const },
+  flagged: { label: "Помечено", variant: "destructive" as const },
 };
 
 const dataTypeLabels = {
-  credentials: "Credentials",
-  "form-data": "Form Data",
-  "survey-response": "Survey Response",
+  credentials: "Учетные данные",
+  "form-data": "Данные формы",
+  "survey-response": "Ответ на опрос",
 };
 
 export function CollectedDataTable({ data, onView }: CollectedDataTableProps) {
@@ -54,8 +54,8 @@ export function CollectedDataTable({ data, onView }: CollectedDataTableProps) {
       .join('\n');
     navigator.clipboard.writeText(text);
     toast({
-      title: "Copied to clipboard",
-      description: "Data has been copied to your clipboard",
+      title: "Скопировано",
+      description: "Данные скопированы в буфер обмена",
     });
     console.log('Copied data:', fields);
   };
@@ -63,21 +63,27 @@ export function CollectedDataTable({ data, onView }: CollectedDataTableProps) {
   const handleExport = () => {
     console.log('Export collected data to CSV');
     toast({
-      title: "Export started",
-      description: "Your data is being prepared for download",
+      title: "Экспорт начат",
+      description: "Данные подготавливаются для скачивания",
     });
+  };
+
+  const getFieldsText = (count: number) => {
+    if (count === 1) return "поле собрано";
+    if (count >= 2 && count <= 4) return "поля собрано";
+    return "полей собрано";
   };
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Collected Data</CardTitle>
+          <CardTitle className="text-lg">Собранные данные</CardTitle>
         </div>
         <Button variant="outline" size="sm" onClick={handleExport} data-testid="button-export-data">
           <Download className="w-4 h-4 mr-2" />
-          Export All
+          Экспорт всех
         </Button>
       </CardHeader>
       <CardContent>
@@ -85,12 +91,12 @@ export function CollectedDataTable({ data, onView }: CollectedDataTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Recipient</TableHead>
-                <TableHead>Campaign</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Fields</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Получатель</TableHead>
+                <TableHead>Кампания</TableHead>
+                <TableHead>Тип</TableHead>
+                <TableHead>Поля</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Дата</TableHead>
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
@@ -109,7 +115,7 @@ export function CollectedDataTable({ data, onView }: CollectedDataTableProps) {
                   </TableCell>
                   <TableCell>
                     <div className="text-xs text-muted-foreground">
-                      {Object.keys(entry.fields).length} field{Object.keys(entry.fields).length !== 1 ? 's' : ''} collected
+                      {Object.keys(entry.fields).length} {getFieldsText(Object.keys(entry.fields).length)}
                     </div>
                   </TableCell>
                   <TableCell>

@@ -54,7 +54,7 @@ export function TemplateCard({
 
   return (
     <Card className="hover-elevate" data-testid={`card-template-${id}`}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center">
             <FileText className="w-5 h-5 text-muted-foreground" />
@@ -62,7 +62,7 @@ export function TemplateCard({
           <div>
             <h3 className="font-medium text-base" data-testid={`text-template-name-${id}`}>{name}</h3>
             <Badge variant={type === "ready-made" ? "secondary" : "outline"} className="mt-1 text-xs">
-              {type === "ready-made" ? "Ready-made" : "Custom"}
+              {type === "ready-made" ? "Готовый" : "Кастомный"}
             </Badge>
           </div>
         </div>
@@ -75,16 +75,16 @@ export function TemplateCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleEdit}>
               <Edit className="w-4 h-4 mr-2" />
-              Edit
+              Редактировать
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleClone}>
               <Copy className="w-4 h-4 mr-2" />
-              Clone
+              Дублировать
             </DropdownMenuItem>
             {type === "custom" && (
               <DropdownMenuItem onClick={handleDelete} className="text-destructive">
                 <Trash2 className="w-4 h-4 mr-2" />
-                Delete
+                Удалить
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -92,11 +92,11 @@ export function TemplateCard({
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
-        <p className="text-xs text-muted-foreground mt-3">Used {usageCount} times</p>
+        <p className="text-xs text-muted-foreground mt-3">Использован {usageCount} раз</p>
       </CardContent>
       <CardFooter>
         <Button className="w-full" onClick={handleUse} data-testid={`button-use-template-${id}`}>
-          Use Template
+          Использовать
         </Button>
       </CardFooter>
     </Card>

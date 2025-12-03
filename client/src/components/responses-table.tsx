@@ -27,9 +27,9 @@ interface ResponsesTableProps {
 }
 
 const typeConfig = {
-  reply: { label: "Email Reply", variant: "default" as const },
-  click: { label: "Link Click", variant: "secondary" as const },
-  "form-submit": { label: "Form Submit", variant: "default" as const },
+  reply: { label: "Ответ на email", variant: "default" as const },
+  click: { label: "Переход по ссылке", variant: "secondary" as const },
+  "form-submit": { label: "Отправка формы", variant: "default" as const },
 };
 
 export function ResponsesTable({ responses, onView }: ResponsesTableProps) {
@@ -44,11 +44,11 @@ export function ResponsesTable({ responses, onView }: ResponsesTableProps) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg">Email Responses</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
+        <CardTitle className="text-lg">Ответы на email</CardTitle>
         <Button variant="outline" size="sm" onClick={handleExport} data-testid="button-export-responses">
           <Download className="w-4 h-4 mr-2" />
-          Export CSV
+          Экспорт CSV
         </Button>
       </CardHeader>
       <CardContent>
@@ -56,11 +56,11 @@ export function ResponsesTable({ responses, onView }: ResponsesTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Recipient</TableHead>
-                <TableHead>Campaign</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Получатель</TableHead>
+                <TableHead>Кампания</TableHead>
+                <TableHead>Тип</TableHead>
+                <TableHead>Тема</TableHead>
+                <TableHead>Дата</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>

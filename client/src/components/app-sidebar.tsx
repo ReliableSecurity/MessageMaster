@@ -17,36 +17,39 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface AppSidebarProps {
   role: "superadmin" | "admin" | "manager";
+  userInitials?: string;
+  userName?: string;
+  userEmail?: string;
 }
 
 const superadminItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Companies", url: "/companies", icon: Users },
-  { title: "Email Services", url: "/services", icon: Server },
-  { title: "Global Templates", url: "/global-templates", icon: FileText },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Главная", url: "/", icon: LayoutDashboard },
+  { title: "Компании", url: "/companies", icon: Users },
+  { title: "Email сервисы", url: "/services", icon: Server },
+  { title: "Шаблоны", url: "/global-templates", icon: FileText },
+  { title: "Аналитика", url: "/analytics", icon: BarChart3 },
+  { title: "Настройки", url: "/settings", icon: Settings },
 ];
 
 const companyUserItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Campaigns", url: "/campaigns", icon: Mail },
-  { title: "Responses", url: "/responses", icon: MessageSquare },
-  { title: "Templates", url: "/templates", icon: FileText },
-  { title: "Contacts", url: "/contacts", icon: Users },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Team", url: "/team", icon: User },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Главная", url: "/", icon: LayoutDashboard },
+  { title: "Кампании", url: "/campaigns", icon: Mail },
+  { title: "Отклики", url: "/responses", icon: MessageSquare },
+  { title: "Шаблоны", url: "/templates", icon: FileText },
+  { title: "Контакты", url: "/contacts", icon: Users },
+  { title: "Аналитика", url: "/analytics", icon: BarChart3 },
+  { title: "Команда", url: "/team", icon: User },
+  { title: "Настройки", url: "/settings", icon: Settings },
 ];
 
-export function AppSidebar({ role }: AppSidebarProps) {
+export function AppSidebar({ role, userInitials = "U", userName = "Пользователь", userEmail = "" }: AppSidebarProps) {
   const [location] = useLocation();
   const items = role === "superadmin" ? superadminItems : companyUserItems;
   
   const getRoleBadge = () => {
-    if (role === "superadmin") return { label: "Super Admin", variant: "default" as const };
-    if (role === "admin") return { label: "Admin", variant: "secondary" as const };
-    return { label: "Manager", variant: "outline" as const };
+    if (role === "superadmin") return { label: "Супер-админ", variant: "default" as const };
+    if (role === "admin") return { label: "Администратор", variant: "secondary" as const };
+    return { label: "Менеджер", variant: "outline" as const };
   };
 
   const roleBadge = getRoleBadge();
@@ -70,7 +73,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Навигация</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -93,11 +96,11 @@ export function AppSidebar({ role }: AppSidebarProps) {
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3">
           <Avatar className="w-8 h-8">
-            <AvatarFallback className="text-xs">AD</AvatarFallback>
+            <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">Admin User</p>
-            <p className="text-xs text-muted-foreground truncate">admin@example.com</p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate" data-testid="text-sidebar-user-name">{userName}</p>
+            <p className="text-xs text-muted-foreground truncate" data-testid="text-sidebar-user-email">{userEmail}</p>
           </div>
         </div>
       </SidebarFooter>

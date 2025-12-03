@@ -33,6 +33,13 @@ interface CampaignTableProps {
   onDelete?: (id: string) => void;
 }
 
+const statusLabels = {
+  sent: "Отправлена",
+  scheduled: "Запланирована",
+  draft: "Черновик",
+  sending: "Отправляется",
+};
+
 const statusVariants = {
   sent: "default",
   scheduled: "secondary",
@@ -61,12 +68,12 @@ export function CampaignTable({ campaigns, onView, onClone, onDelete }: Campaign
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Campaign Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Sent</TableHead>
-            <TableHead className="text-right">Opened</TableHead>
-            <TableHead className="text-right">Clicked</TableHead>
-            <TableHead>Date</TableHead>
+            <TableHead>Название</TableHead>
+            <TableHead>Статус</TableHead>
+            <TableHead className="text-right">Отправлено</TableHead>
+            <TableHead className="text-right">Открыто</TableHead>
+            <TableHead className="text-right">Переходы</TableHead>
+            <TableHead>Дата</TableHead>
             <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
@@ -80,7 +87,7 @@ export function CampaignTable({ campaigns, onView, onClone, onDelete }: Campaign
                 <TableCell className="font-medium">{campaign.name}</TableCell>
                 <TableCell>
                   <Badge variant={statusVariants[campaign.status]} data-testid={`badge-status-${campaign.id}`}>
-                    {campaign.status}
+                    {statusLabels[campaign.status]}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">{campaign.sent.toLocaleString()}</TableCell>
@@ -101,11 +108,11 @@ export function CampaignTable({ campaigns, onView, onClone, onDelete }: Campaign
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleView(campaign.id)} data-testid={`action-view-${campaign.id}`}>
                         <Eye className="w-4 h-4 mr-2" />
-                        View Details
+                        Просмотр
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleClone(campaign.id)} data-testid={`action-clone-${campaign.id}`}>
                         <Copy className="w-4 h-4 mr-2" />
-                        Clone Campaign
+                        Дублировать
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDelete(campaign.id)} 
@@ -113,7 +120,7 @@ export function CampaignTable({ campaigns, onView, onClone, onDelete }: Campaign
                         data-testid={`action-delete-${campaign.id}`}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
+                        Удалить
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

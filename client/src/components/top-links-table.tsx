@@ -23,15 +23,15 @@ export function TopLinksTable({ links }: TopLinksTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Top Links</CardTitle>
+        <CardTitle className="text-lg">Популярные ссылки</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Link</TableHead>
-              <TableHead className="text-right">Total Clicks</TableHead>
-              <TableHead className="text-right">Unique Clicks</TableHead>
+              <TableHead>Ссылка</TableHead>
+              <TableHead className="text-right">Всего кликов</TableHead>
+              <TableHead className="text-right">Уникальных</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

@@ -3,6 +3,17 @@ import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, pgEnum, uui
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
 // Enums
 export const userRoleEnum = pgEnum("user_role", ["superadmin", "admin", "manager"]);
 export const campaignStatusEnum = pgEnum("campaign_status", ["draft", "scheduled", "sending", "sent", "paused", "cancelled"]);
@@ -15,9 +26,10 @@ export const collectedDataStatusEnum = pgEnum("collected_data_status", ["pending
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   replitUserId: text("replit_user_id").unique(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
   role: userRoleEnum("role").notNull().default("manager"),
   companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
   isActive: boolean("is_active").notNull().default(true),
@@ -286,6 +298,15 @@ export const insertCollectedDataSchema = createInsertSchema(collectedData).omit(
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// UpsertUser type for Replit Auth
+export type UpsertUser = {
+  replitUserId: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+};
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;

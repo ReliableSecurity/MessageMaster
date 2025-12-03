@@ -15,7 +15,7 @@ export function CampaignPerformanceChart({ data }: CampaignPerformanceChartProps
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Campaign Performance Over Time</CardTitle>
+        <CardTitle className="text-lg">Динамика кампаний</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -36,7 +36,7 @@ export function CampaignPerformanceChart({ data }: CampaignPerformanceChartProps
               dataKey="opened"
               stroke="hsl(var(--chart-1))"
               strokeWidth={2}
-              name="Opened"
+              name="Открыто"
               dot={{ fill: "hsl(var(--chart-1))" }}
             />
             <Line
@@ -44,7 +44,7 @@ export function CampaignPerformanceChart({ data }: CampaignPerformanceChartProps
               dataKey="clicked"
               stroke="hsl(var(--chart-2))"
               strokeWidth={2}
-              name="Clicked"
+              name="Переходы"
               dot={{ fill: "hsl(var(--chart-2))" }}
             />
           </LineChart>
