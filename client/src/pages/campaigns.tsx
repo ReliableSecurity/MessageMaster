@@ -81,13 +81,12 @@ export default function Campaigns() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CampaignFormData) => 
-      apiRequest("POST", "/api/campaigns", data),
+    mutationFn: (data: CampaignFormData) => apiRequest("POST", "/api/campaigns", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({ title: "Кампания создана", description: "Новая кампания успешно создана" });
+      queryClient.refetchQueries({ queryKey: ["/api/campaigns"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось создать кампанию", variant: "destructive" });
@@ -97,16 +96,16 @@ export default function Campaigns() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       toast({ title: "Кампания удалена" });
+      queryClient.refetchQueries({ queryKey: ["/api/campaigns"] });
     },
   });
 
   const launchMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/campaigns/${id}/launch`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       toast({ title: "Кампания запущена", description: "Начинается отправка писем" });
+      queryClient.refetchQueries({ queryKey: ["/api/campaigns"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось запустить кампанию", variant: "destructive" });
@@ -190,11 +189,8 @@ export default function Campaigns() {
                         </FormControl>
                         <SelectContent>
                           {templates?.map(template => (
-                            <SelectItem key={template.id} value={template.id}>
-                              <div className="flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-muted-foreground" />
-                                {template.name}
-                              </div>
+                            <SelectItem key={template.id} value={template.id} data-testid={`option-template-${template.id}`}>
+                              {template.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -219,11 +215,8 @@ export default function Campaigns() {
                         </FormControl>
                         <SelectContent>
                           {landingPages?.map(page => (
-                            <SelectItem key={page.id} value={page.id}>
-                              <div className="flex items-center gap-2">
-                                <Globe className="w-4 h-4 text-muted-foreground" />
-                                {page.name}
-                              </div>
+                            <SelectItem key={page.id} value={page.id} data-testid={`option-landing-${page.id}`}>
+                              {page.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -248,11 +241,8 @@ export default function Campaigns() {
                         </FormControl>
                         <SelectContent>
                           {emailServices?.filter(s => s.isActive).map(service => (
-                            <SelectItem key={service.id} value={service.id}>
-                              <div className="flex items-center gap-2">
-                                <Server className="w-4 h-4 text-muted-foreground" />
-                                {service.name} ({service.provider})
-                              </div>
+                            <SelectItem key={service.id} value={service.id} data-testid={`option-profile-${service.id}`}>
+                              {service.name} ({service.provider})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -277,11 +267,8 @@ export default function Campaigns() {
                         </FormControl>
                         <SelectContent>
                           {contactGroups?.map(group => (
-                            <SelectItem key={group.id} value={group.id}>
-                              <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-muted-foreground" />
-                                {group.name}
-                              </div>
+                            <SelectItem key={group.id} value={group.id} data-testid={`option-group-${group.id}`}>
+                              {group.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

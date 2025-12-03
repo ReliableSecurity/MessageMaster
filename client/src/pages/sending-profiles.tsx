@@ -77,13 +77,12 @@ export default function SendingProfiles() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: EmailServiceFormData) => 
-      apiRequest("/api/email-services", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: EmailServiceFormData) => apiRequest("POST", "/api/email-services", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/email-services"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({ title: "Сервис добавлен", description: "Email сервис успешно настроен" });
+      queryClient.refetchQueries({ queryKey: ["/api/email-services"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось добавить сервис", variant: "destructive" });
@@ -95,13 +94,13 @@ export default function SendingProfiles() {
       const updateData: any = { ...data };
       if (!updateData.apiKey) delete updateData.apiKey;
       if (!updateData.apiSecret) delete updateData.apiSecret;
-      return apiRequest(`/api/email-services/${data.id}`, { method: "PATCH", body: JSON.stringify(updateData) });
+      return apiRequest("PATCH", `/api/email-services/${data.id}`, updateData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/email-services"] });
       setEditingService(null);
       form.reset();
       toast({ title: "Сервис обновлён", description: "Настройки email сервиса изменены" });
+      queryClient.refetchQueries({ queryKey: ["/api/email-services"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось обновить сервис", variant: "destructive" });
@@ -109,10 +108,10 @@ export default function SendingProfiles() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/email-services/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/email-services/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/email-services"] });
       toast({ title: "Сервис удалён", description: "Email сервис успешно удалён" });
+      queryClient.refetchQueries({ queryKey: ["/api/email-services"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось удалить сервис", variant: "destructive" });
@@ -150,9 +149,9 @@ export default function SendingProfiles() {
     return apiKey.substring(0, 4) + "..." + apiKey.substring(apiKey.length - 4);
   };
 
-  const formatLastUsed = (date: string | null): string => {
+  const formatLastUsed = (date: Date | string | null): string => {
     if (!date) return "Никогда";
-    const lastUsed = new Date(date);
+    const lastUsed = typeof date === 'string' ? new Date(date) : date;
     const now = new Date();
     const diffMs = now.getTime() - lastUsed.getTime();
     const diffMins = Math.floor(diffMs / 60000);

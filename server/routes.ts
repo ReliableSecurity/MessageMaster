@@ -426,12 +426,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/templates", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
+      // For superadmin, use query companyId or fallback to their own company
+      let companyId: string | null;
       if (dbUser.role === "superadmin") {
-        const companyId = req.query.companyId as string | null;
-        const templates = await storage.getTemplatesByCompany(companyId);
-        return res.json(templates);
+        companyId = (req.query.companyId as string) || dbUser.companyId || null;
+      } else {
+        companyId = dbUser.companyId;
       }
-      const templates = await storage.getTemplatesByCompany(dbUser.companyId);
+      const templates = await storage.getTemplatesByCompany(companyId);
       res.json(templates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch templates" });
@@ -457,11 +459,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/templates", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const data = insertTemplateSchema.parse(req.body);
-      if (dbUser.role !== "superadmin") {
-        data.companyId = dbUser.companyId;
-        data.isGlobal = false;
-      }
+      // Inject companyId and isGlobal before validation for non-superadmin users
+      const bodyWithCompany = dbUser.role !== "superadmin" 
+        ? { ...req.body, companyId: dbUser.companyId, isGlobal: false }
+        : req.body;
+      const data = insertTemplateSchema.parse(bodyWithCompany);
       const template = await storage.createTemplate(data);
       res.status(201).json(template);
     } catch (error) {
@@ -550,16 +552,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/landing-pages", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const data = insertLandingPageSchema.parse(req.body);
+      // Inject companyId and isGlobal before validation
+      let bodyWithCompany;
       if (dbUser.role !== "superadmin") {
-        data.companyId = dbUser.companyId;
-        data.isGlobal = false;
+        bodyWithCompany = { ...req.body, companyId: dbUser.companyId, isGlobal: false };
       } else {
         // For superadmin, use their companyId if not specified
-        if (!data.companyId) {
-          data.companyId = dbUser.companyId;
-        }
+        bodyWithCompany = req.body.companyId 
+          ? req.body 
+          : { ...req.body, companyId: dbUser.companyId };
       }
+      const data = insertLandingPageSchema.parse(bodyWithCompany);
       const page = await storage.createLandingPage(data);
       res.status(201).json(page);
     } catch (error) {
@@ -805,18 +808,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
+      // For superadmin, use query companyId or fallback to their own company
+      let companyId: string;
       if (dbUser.role === "superadmin") {
-        const companyId = req.query.companyId as string;
-        if (!companyId) {
-          return res.json([]);
-        }
-        const campaigns = await storage.getCampaignsByCompany(companyId);
-        return res.json(campaigns);
+        companyId = (req.query.companyId as string) || dbUser.companyId;
+      } else {
+        companyId = dbUser.companyId;
       }
-      if (!dbUser.companyId) {
+      if (!companyId) {
         return res.json([]);
       }
-      const campaigns = await storage.getCampaignsByCompany(dbUser.companyId);
+      const campaigns = await storage.getCampaignsByCompany(companyId);
       res.json(campaigns);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch campaigns" });
@@ -842,10 +844,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const data = insertCampaignSchema.parse(req.body);
-      if (dbUser.role !== "superadmin") {
-        data.companyId = dbUser.companyId;
-      }
+      // Inject companyId before validation for non-superadmin users
+      const bodyWithCompany = dbUser.role !== "superadmin" 
+        ? { ...req.body, companyId: dbUser.companyId }
+        : req.body;
+      const data = insertCampaignSchema.parse(bodyWithCompany);
       const campaign = await storage.createCampaign(data);
       res.status(201).json(campaign);
     } catch (error) {
@@ -1095,12 +1098,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/email-services", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
+      // For superadmin, use query companyId or fallback to their own company
+      let companyId: string | null;
       if (dbUser.role === "superadmin") {
-        const companyId = req.query.companyId as string | null;
-        const services = await storage.getEmailServicesByCompany(companyId);
-        return res.json(services);
+        companyId = (req.query.companyId as string) || dbUser.companyId || null;
+      } else {
+        companyId = dbUser.companyId;
       }
-      const services = await storage.getEmailServicesByCompany(dbUser.companyId);
+      const services = await storage.getEmailServicesByCompany(companyId);
       res.json(services);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch email services" });
@@ -1126,11 +1131,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/email-services", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const data = insertEmailServiceSchema.parse(req.body);
-      if (dbUser.role !== "superadmin") {
-        data.companyId = dbUser.companyId;
-        data.isPlatformDefault = false;
-      }
+      // Inject companyId and isPlatformDefault before validation for non-superadmin users
+      const bodyWithCompany = dbUser.role !== "superadmin" 
+        ? { ...req.body, companyId: dbUser.companyId, isPlatformDefault: false }
+        : req.body;
+      const data = insertEmailServiceSchema.parse(bodyWithCompany);
       const service = await storage.createEmailService(data);
       res.status(201).json(service);
     } catch (error) {

@@ -54,13 +54,12 @@ export default function Templates() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: TemplateFormData) => 
-      apiRequest("/api/templates", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: TemplateFormData) => apiRequest("POST", "/api/templates", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({ title: "Шаблон создан", description: "Новый шаблон успешно добавлен" });
+      queryClient.refetchQueries({ queryKey: ["/api/templates"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось создать шаблон", variant: "destructive" });
@@ -69,12 +68,12 @@ export default function Templates() {
 
   const updateMutation = useMutation({
     mutationFn: (data: TemplateFormData & { id: string }) => 
-      apiRequest(`/api/templates/${data.id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      apiRequest("PATCH", `/api/templates/${data.id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       setEditingTemplate(null);
       form.reset();
       toast({ title: "Шаблон обновлён", description: "Изменения сохранены" });
+      queryClient.refetchQueries({ queryKey: ["/api/templates"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось обновить шаблон", variant: "destructive" });
@@ -82,10 +81,10 @@ export default function Templates() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/templates/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/templates/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       toast({ title: "Шаблон удалён", description: "Шаблон успешно удалён" });
+      queryClient.refetchQueries({ queryKey: ["/api/templates"] });
     },
     onError: () => {
       toast({ title: "Ошибка", description: "Не удалось удалить шаблон", variant: "destructive" });
@@ -101,7 +100,7 @@ export default function Templates() {
         htmlContent: template.htmlContent,
         textContent: template.textContent,
       };
-      return apiRequest("/api/templates", { method: "POST", body: JSON.stringify(cloneData) });
+      return apiRequest("POST", "/api/templates", cloneData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });

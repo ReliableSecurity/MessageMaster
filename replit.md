@@ -4,9 +4,14 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
-- **2025-12-03**: Fixed contact groups and contacts creation for all users
-  - Fixed companyId injection before Zod validation in POST endpoints
-  - Fixed GET /api/contacts and GET /api/contact-groups for superadmin (now defaults to their own company)
+- **2025-12-03**: Fixed all CRUD operations for superadmin and multi-tenant users
+  - Fixed companyId injection before Zod validation in ALL POST endpoints:
+    - POST /api/campaigns, POST /api/templates, POST /api/landing-pages
+    - POST /api/email-services, POST /api/contacts, POST /api/contact-groups
+  - Fixed GET /api/campaigns for superadmin (now defaults to their own company if no companyId in query)
+  - Fixed GET /api/contacts and GET /api/contact-groups for superadmin (same pattern)
+  - Fixed apiRequest() call signatures in templates.tsx and sending-profiles.tsx
+  - Simplified SelectItem content in campaign form for better Playwright compatibility
   - Dialog now closes immediately on success, then refetches data asynchronously
 - **2025-12-03**: Added campaign launch functionality
   - POST /api/campaigns/:id/launch - changes campaign status from draft to sending
