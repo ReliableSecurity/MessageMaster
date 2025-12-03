@@ -612,18 +612,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contact-groups", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      if (dbUser.role === "superadmin") {
-        const companyId = req.query.companyId as string;
-        if (!companyId) {
-          return res.json([]);
-        }
-        const groups = await storage.getContactGroupsByCompany(companyId);
-        return res.json(groups);
-      }
-      if (!dbUser.companyId) {
+      // For superadmin: use query companyId if provided, otherwise use their own companyId
+      const companyId = dbUser.role === "superadmin" 
+        ? (req.query.companyId as string || dbUser.companyId)
+        : dbUser.companyId;
+      
+      if (!companyId) {
         return res.json([]);
       }
-      const groups = await storage.getContactGroupsByCompany(dbUser.companyId);
+      const groups = await storage.getContactGroupsByCompany(companyId);
       res.json(groups);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch contact groups" });
@@ -633,10 +630,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contact-groups", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const data = insertContactGroupSchema.parse(req.body);
-      if (dbUser.role !== "superadmin") {
-        data.companyId = dbUser.companyId;
-      }
+      // Set companyId before validation
+      const requestData = {
+        ...req.body,
+        companyId: dbUser.role === "superadmin" && req.body.companyId ? req.body.companyId : dbUser.companyId,
+      };
+      const data = insertContactGroupSchema.parse(requestData);
       const group = await storage.createContactGroup(data);
       res.status(201).json(group);
     } catch (error) {
@@ -692,18 +691,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contacts", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      if (dbUser.role === "superadmin") {
-        const companyId = req.query.companyId as string;
-        if (!companyId) {
-          return res.json([]);
-        }
-        const contacts = await storage.getContactsByCompany(companyId);
-        return res.json(contacts);
-      }
-      if (!dbUser.companyId) {
+      // For superadmin: use query companyId if provided, otherwise use their own companyId
+      const companyId = dbUser.role === "superadmin" 
+        ? (req.query.companyId as string || dbUser.companyId)
+        : dbUser.companyId;
+      
+      if (!companyId) {
         return res.json([]);
       }
-      const contacts = await storage.getContactsByCompany(dbUser.companyId);
+      const contacts = await storage.getContactsByCompany(companyId);
       res.json(contacts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch contacts" });
@@ -729,10 +725,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contacts", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const data = insertContactSchema.parse(req.body);
-      if (dbUser.role !== "superadmin") {
-        data.companyId = dbUser.companyId;
-      }
+      // Set companyId before validation
+      const requestData = {
+        ...req.body,
+        companyId: dbUser.role === "superadmin" && req.body.companyId ? req.body.companyId : dbUser.companyId,
+      };
+      const data = insertContactSchema.parse(requestData);
       const contact = await storage.createContact(data);
       res.status(201).json(contact);
     } catch (error) {
@@ -746,10 +744,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/contacts/bulk", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      const contacts = z.array(insertContactSchema).parse(req.body);
-      if (dbUser.role !== "superadmin") {
-        contacts.forEach((c: any) => { c.companyId = dbUser.companyId; });
-      }
+      // Add companyId to each contact before validation
+      const contactsWithCompany = (req.body as any[]).map((c: any) => ({
+        ...c,
+        companyId: dbUser.role === "superadmin" && c.companyId ? c.companyId : dbUser.companyId,
+      }));
+      const contacts = z.array(insertContactSchema).parse(contactsWithCompany);
       const created = await storage.createContactsBulk(contacts);
       res.status(201).json(created);
     } catch (error) {

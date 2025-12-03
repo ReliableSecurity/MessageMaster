@@ -75,20 +75,22 @@ export default function UsersGroups() {
   const createContactMutation = useMutation({
     mutationFn: (data: ContactFormData) => apiRequest("POST", "/api/contacts", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       setIsContactDialogOpen(false);
+      setEditingContact(null);
       contactForm.reset();
       toast({ title: "Пользователь добавлен" });
+      queryClient.refetchQueries({ queryKey: ["/api/contacts"] });
     },
   });
 
   const createGroupMutation = useMutation({
     mutationFn: (data: GroupFormData) => apiRequest("POST", "/api/contact-groups", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contact-groups"] });
       setIsGroupDialogOpen(false);
+      setEditingGroup(null);
       groupForm.reset();
       toast({ title: "Группа создана" });
+      queryClient.refetchQueries({ queryKey: ["/api/contact-groups"] });
     },
   });
 
@@ -384,7 +386,7 @@ export default function UsersGroups() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button size="sm" onClick={() => { setEditingGroup(null); setIsGroupDialogOpen(true); }} data-testid="button-add-group">
+                  <Button size="sm" onClick={() => { setEditingGroup(null); groupForm.reset({ name: "", description: "" }); setIsGroupDialogOpen(true); }} data-testid="button-add-group">
                     <Plus className="w-4 h-4 mr-2" />
                     Новая группа
                   </Button>
@@ -392,6 +394,9 @@ export default function UsersGroups() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>{editingGroup ? "Редактировать группу" : "Новая группа"}</DialogTitle>
+                    <DialogDescription>
+                      {editingGroup ? "Измените название или описание группы" : "Создайте новую группу для организации контактов"}
+                    </DialogDescription>
                   </DialogHeader>
                   <Form {...groupForm}>
                     <form onSubmit={groupForm.handleSubmit(onGroupSubmit)} className="space-y-4">
@@ -519,6 +524,9 @@ export default function UsersGroups() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Новый пользователь</DialogTitle>
+                    <DialogDescription>
+                      Добавьте нового пользователя для фишинг-тестирования
+                    </DialogDescription>
                   </DialogHeader>
                   <Form {...contactForm}>
                     <form onSubmit={contactForm.handleSubmit((data) => createContactMutation.mutate(data))} className="space-y-4">
