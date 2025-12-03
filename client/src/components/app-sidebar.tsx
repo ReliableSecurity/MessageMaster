@@ -14,44 +14,54 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useLanguage } from "@/lib/i18n";
 
 interface AppSidebarProps {
-  role: "superadmin" | "admin" | "manager";
+  role: "superadmin" | "admin" | "manager" | "viewer";
   userInitials?: string;
   userName?: string;
   userEmail?: string;
 }
 
-const superadminItems = [
-  { title: "Главная", url: "/", icon: LayoutDashboard },
-  { title: "Админ-панель", url: "/admin", icon: Shield },
-  { title: "Компании", url: "/companies", icon: Users },
-  { title: "Кампании", url: "/campaigns", icon: Send },
-  { title: "Пользователи и группы", url: "/users-groups", icon: Users },
-  { title: "Шаблоны писем", url: "/templates", icon: Mail },
-  { title: "Фишинг-страницы", url: "/landing-pages", icon: Globe },
-  { title: "Профили отправки", url: "/sending-profiles", icon: Server },
-  { title: "Настройки", url: "/settings", icon: Settings },
-];
-
-const companyUserItems = [
-  { title: "Главная", url: "/", icon: LayoutDashboard },
-  { title: "Кампании", url: "/campaigns", icon: Send },
-  { title: "Пользователи и группы", url: "/users-groups", icon: Users },
-  { title: "Шаблоны писем", url: "/templates", icon: Mail },
-  { title: "Фишинг-страницы", url: "/landing-pages", icon: Globe },
-  { title: "Профили отправки", url: "/sending-profiles", icon: Server },
-  { title: "Настройки", url: "/settings", icon: Settings },
-];
-
-export function AppSidebar({ role, userInitials = "U", userName = "Пользователь", userEmail = "" }: AppSidebarProps) {
+export function AppSidebar({ role, userInitials = "U", userName = "User", userEmail = "" }: AppSidebarProps) {
   const [location] = useLocation();
-  const items = role === "superadmin" ? superadminItems : companyUserItems;
+  const { t, language } = useLanguage();
+  
+  const superadminItems = [
+    { title: t("nav.dashboard"), url: "/", icon: LayoutDashboard },
+    { title: t("nav.admin"), url: "/admin", icon: Shield },
+    { title: t("nav.companies"), url: "/companies", icon: Users },
+    { title: t("nav.campaigns"), url: "/campaigns", icon: Send },
+    { title: t("nav.usersGroups"), url: "/users-groups", icon: Users },
+    { title: t("nav.templates"), url: "/templates", icon: Mail },
+    { title: t("nav.landingPages"), url: "/landing-pages", icon: Globe },
+    { title: t("nav.sendingProfiles"), url: "/sending-profiles", icon: Server },
+    { title: t("nav.settings"), url: "/settings", icon: Settings },
+  ];
+
+  const companyUserItems = [
+    { title: t("nav.dashboard"), url: "/", icon: LayoutDashboard },
+    { title: t("nav.campaigns"), url: "/campaigns", icon: Send },
+    { title: t("nav.usersGroups"), url: "/users-groups", icon: Users },
+    { title: t("nav.templates"), url: "/templates", icon: Mail },
+    { title: t("nav.landingPages"), url: "/landing-pages", icon: Globe },
+    { title: t("nav.sendingProfiles"), url: "/sending-profiles", icon: Server },
+    { title: t("nav.settings"), url: "/settings", icon: Settings },
+  ];
+
+  const viewerItems = [
+    { title: t("nav.dashboard"), url: "/", icon: LayoutDashboard },
+    { title: t("nav.campaigns"), url: "/campaigns", icon: Send },
+    { title: t("nav.settings"), url: "/settings", icon: Settings },
+  ];
+  
+  const items = role === "superadmin" ? superadminItems : role === "viewer" ? viewerItems : companyUserItems;
   
   const getRoleBadge = () => {
-    if (role === "superadmin") return { label: "Супер-админ", variant: "default" as const };
-    if (role === "admin") return { label: "Администратор", variant: "secondary" as const };
-    return { label: "Менеджер", variant: "outline" as const };
+    if (role === "superadmin") return { label: language === "ru" ? "Супер-админ" : "Super Admin", variant: "default" as const };
+    if (role === "admin") return { label: language === "ru" ? "Администратор" : "Administrator", variant: "secondary" as const };
+    if (role === "viewer") return { label: language === "ru" ? "Просмотрщик" : "Viewer", variant: "outline" as const };
+    return { label: language === "ru" ? "Менеджер" : "Manager", variant: "outline" as const };
   };
 
   const roleBadge = getRoleBadge();
@@ -75,7 +85,7 @@ export function AppSidebar({ role, userInitials = "U", userName = "Пользо�
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Навигация</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("nav.navigation")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { Bell, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ function AuthenticatedRouter() {
 
 function AuthenticatedApp() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const style = {
     "--sidebar-width": "16rem",
   };
@@ -59,8 +61,8 @@ function AuthenticatedApp() {
     : 'U';
 
   const userFullName = user 
-    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Пользователь'
-    : 'Пользователь';
+    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User'
+    : 'User';
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -104,7 +106,7 @@ function AuthenticatedApp() {
                   <DropdownMenuItem asChild className="cursor-pointer" data-testid="button-logout">
                     <a href="/api/logout" className="flex items-center gap-2">
                       <LogOut className="w-4 h-4" />
-                      Выйти
+                      {t("auth.logout")}
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -123,11 +125,12 @@ function AuthenticatedApp() {
 }
 
 function LoadingScreen() {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Загрузка...</p>
+        <p className="text-muted-foreground">{t("common.loading")}</p>
       </div>
     </div>
   );
@@ -150,10 +153,12 @@ function Router() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Router />
-        <Toaster />
-      </TooltipProvider>
+      <LanguageProvider>
+        <TooltipProvider>
+          <Router />
+          <Toaster />
+        </TooltipProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

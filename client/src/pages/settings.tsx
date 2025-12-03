@@ -11,9 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Settings as SettingsIcon, User, Bell, Shield, Palette, Globe, Mail, Key, Building2, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage, Language } from "@/lib/i18n";
 
 export default function Settings() {
   const { toast } = useToast();
+  const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("profile");
   
   const [profileData, setProfileData] = useState({
@@ -31,23 +33,30 @@ export default function Settings() {
 
   const [appearance, setAppearance] = useState({
     theme: "system",
-    language: "ru",
     compactMode: false,
   });
 
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang as Language);
+    toast({ 
+      title: lang === "ru" ? "Язык изменён" : "Language changed", 
+      description: lang === "ru" ? "Интерфейс переключен на русский" : "Interface switched to English" 
+    });
+  };
+
   const handleSaveProfile = () => {
-    toast({ title: "Профиль сохранен", description: "Ваши данные успешно обновлены" });
+    toast({ title: t("settings.profileSaved"), description: t("settings.profileSavedDesc") });
   };
 
   const handleSaveNotifications = () => {
-    toast({ title: "Настройки уведомлений сохранены" });
+    toast({ title: t("settings.notificationsSaved") });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">Настройки</h1>
-        <p className="text-muted-foreground mt-1">Управление аккаунтом и настройками приложения</p>
+        <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">{t("settings.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("settings.subtitle")}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -287,13 +296,13 @@ export default function Settings() {
               </div>
               <Separator />
               <div className="space-y-2">
-                <Label>Язык</Label>
+                <Label>{t("settings.language")}</Label>
                 <Select 
-                  value={appearance.language} 
-                  onValueChange={(value) => setAppearance({ ...appearance, language: value })}
+                  value={language} 
+                  onValueChange={handleLanguageChange}
                 >
                   <SelectTrigger className="w-[200px]" data-testid="select-language">
-                    <SelectValue placeholder="Выберите язык" />
+                    <SelectValue placeholder={language === "ru" ? "Выберите язык" : "Select language"} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ru">Русский</SelectItem>
