@@ -21,12 +21,14 @@ export const emailServiceProviderEnum = pgEnum("email_service_provider", ["sendg
 export const emailEventTypeEnum = pgEnum("email_event_type", ["sent", "delivered", "opened", "clicked", "bounced", "complained", "unsubscribed"]);
 export const collectedDataTypeEnum = pgEnum("collected_data_type", ["credentials", "form-data", "survey-response"]);
 export const collectedDataStatusEnum = pgEnum("collected_data_status", ["pending", "verified", "flagged"]);
+export const recipientStatusEnum = pgEnum("recipient_status", ["pending", "sent", "opened", "clicked", "submitted_data"]);
 
 // Users table
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   replitUserId: text("replit_user_id").unique(),
   email: text("email").unique(),
+  password: text("password"),
   firstName: text("first_name"),
   lastName: text("last_name"),
   profileImageUrl: text("profile_image_url"),
@@ -146,6 +148,7 @@ export const campaigns = pgTable("campaigns", {
   deliveredCount: integer("delivered_count").notNull().default(0),
   openedCount: integer("opened_count").notNull().default(0),
   clickedCount: integer("clicked_count").notNull().default(0),
+  submittedDataCount: integer("submitted_data_count").notNull().default(0),
   bouncedCount: integer("bounced_count").notNull().default(0),
   unsubscribedCount: integer("unsubscribed_count").notNull().default(0),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
@@ -162,12 +165,14 @@ export const campaignRecipients = pgTable("campaign_recipients", {
   campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
   contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
   trackingId: uuid("tracking_id").notNull().default(sql`gen_random_uuid()`).unique(),
+  status: recipientStatusEnum("status").notNull().default("pending"),
   personalizedSubject: text("personalized_subject"),
   personalizedContent: text("personalized_content"),
   sentAt: timestamp("sent_at"),
   deliveredAt: timestamp("delivered_at"),
   openedAt: timestamp("opened_at"),
   clickedAt: timestamp("clicked_at"),
+  submittedDataAt: timestamp("submitted_data_at"),
   bouncedAt: timestamp("bounced_at"),
   unsubscribedAt: timestamp("unsubscribed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -176,6 +181,7 @@ export const campaignRecipients = pgTable("campaign_recipients", {
   campaignIdIdx: index("campaign_recipients_campaign_id_idx").on(table.campaignId),
   contactIdIdx: index("campaign_recipients_contact_id_idx").on(table.contactId),
   trackingIdIdx: index("campaign_recipients_tracking_id_idx").on(table.trackingId),
+  statusIdx: index("campaign_recipients_status_idx").on(table.status),
 }));
 
 // Email Events table (tracking opens, clicks, etc.)
@@ -274,10 +280,12 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
 export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
   id: true,
   trackingId: true,
+  status: true,
   sentAt: true,
   deliveredAt: true,
   openedAt: true,
   clickedAt: true,
+  submittedDataAt: true,
   bouncedAt: true,
   unsubscribedAt: true,
   createdAt: true,
