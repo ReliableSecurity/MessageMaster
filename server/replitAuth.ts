@@ -207,3 +207,49 @@ export function requireRole(...allowedRoles: string[]): RequestHandler {
     next();
   };
 }
+
+export function requireViewerCampaignAccess(): RequestHandler {
+  return async (req, res, next) => {
+    const dbUser = (req as any).dbUser;
+    
+    if (!dbUser) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    // Non-viewers have full access to their company's campaigns
+    if (dbUser.role !== "viewer") {
+      return next();
+    }
+    
+    // Viewers can only access assigned campaigns
+    const campaignId = req.params.id || req.params.campaignId;
+    if (!campaignId) {
+      return res.status(400).json({ message: "Campaign ID required" });
+    }
+    
+    const viewerAccess = await storage.getViewerCampaignAccess(dbUser.id);
+    const allowedCampaignIds = viewerAccess.map(a => a.campaignId);
+    
+    if (!allowedCampaignIds.includes(campaignId)) {
+      return res.status(403).json({ message: "Forbidden: no access to this campaign" });
+    }
+    
+    next();
+  };
+}
+
+export function isReadOnlyForViewer(): RequestHandler {
+  return async (req, res, next) => {
+    const dbUser = (req as any).dbUser;
+    
+    if (!dbUser) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    if (dbUser.role === "viewer") {
+      return res.status(403).json({ message: "Forbidden: viewers have read-only access" });
+    }
+    
+    next();
+  };
+}

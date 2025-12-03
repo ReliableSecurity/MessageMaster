@@ -4,6 +4,18 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Added viewer accounts functionality
+  - New role 'viewer' with read-only access to specific campaigns
+  - Viewer management UI in Settings page (Viewers tab)
+  - API endpoints: GET/POST/PATCH/DELETE /api/viewers, PATCH /api/viewers/:id/access
+  - viewerCampaignAccess table for campaign-specific permissions
+  - Viewers can only see: campaigns they're assigned to, campaign events, collected data, recipients
+  - Middleware: requireViewerCampaignAccess(), isReadOnlyForViewer()
+- **2025-12-03**: Added language switching functionality
+  - LanguageContext in client/src/lib/i18n.tsx
+  - Language toggle in Settings > Appearance tab
+  - Supports Russian and English
+  - Language preference stored in localStorage
 - **2025-12-03**: Fixed all CRUD operations for superadmin and multi-tenant users
   - Fixed companyId injection before Zod validation in ALL POST endpoints:
     - POST /api/campaigns, POST /api/templates, POST /api/landing-pages
@@ -63,12 +75,13 @@ Multi-tenant SaaS platform for phishing simulation and security awareness testin
   - POST `/api/auth/login` - authenticates via email/password
   - Passwords hashed with bcrypt (10 rounds)
 - Session storage in PostgreSQL (sessions table)
-- Roles: superadmin, admin, manager
+- Roles: superadmin, admin, manager, viewer
+  - viewer: read-only access to assigned campaigns only
 - Auth routes: `/api/login`, `/api/logout`, `/api/callback`
 - Protected API routes use `isAuthenticated` middleware
 
 ### Database Schema
-- **users**: User accounts with replitUserId for Replit Auth, password hash for local auth
+- **users**: User accounts with replitUserId for Replit Auth, password hash for local auth, viewerParentId for viewer accounts
 - **sessions**: Session storage for authentication
 - **companies**: Multi-tenant company data
 - **campaigns**: Email campaign definitions with tracking counts (sentCount, openedCount, clickedCount, submittedDataCount)
@@ -79,6 +92,7 @@ Multi-tenant SaaS platform for phishing simulation and security awareness testin
 - **emailEvents**: Tracking for opens, clicks, bounces
 - **collectedData**: Captured credentials and form data from phishing simulations
 - **campaignRecipients**: Campaign recipient tracking with status (pending, sent, opened, clicked, submitted_data)
+- **viewerCampaignAccess**: Links viewers to specific campaigns they can access
 
 ### Key Files
 - `server/replitAuth.ts`: Replit Auth configuration

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireRole, requireViewerCampaignAccess, isReadOnlyForViewer } from "./replitAuth";
 import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertLandingPageSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -1008,9 +1008,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Campaigns API
-  app.get("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+  app.get("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager", "viewer"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
+      
+      // Viewers can only see their assigned campaigns
+      if (dbUser.role === "viewer") {
+        const viewerCampaigns = await storage.getCampaignsForViewer(dbUser.id);
+        return res.json(viewerCampaigns);
+      }
+      
       // For superadmin, use query companyId or fallback to their own company
       let companyId: string;
       if (dbUser.role === "superadmin") {
@@ -1028,14 +1035,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/campaigns/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+  app.get("/api/campaigns/:id", isAuthenticated, requireRole("superadmin", "admin", "manager", "viewer"), requireViewerCampaignAccess(), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+      // Viewers already passed access check via middleware
+      if (dbUser.role !== "superadmin" && dbUser.role !== "viewer" && campaign.companyId !== dbUser.companyId) {
         return res.status(403).json({ error: "Access denied" });
       }
       res.json(campaign);
@@ -1135,14 +1143,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Campaign Recipients API
-  app.get("/api/campaign-recipients/:campaignId", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+  app.get("/api/campaign-recipients/:campaignId", isAuthenticated, requireRole("superadmin", "admin", "manager", "viewer"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
+      
+      // Viewers can only access their assigned campaigns
+      if (dbUser.role === "viewer") {
+        const viewerAccess = await storage.getViewerCampaignAccess(dbUser.id);
+        const allowedCampaignIds = viewerAccess.map(a => a.campaignId);
+        if (!allowedCampaignIds.includes(req.params.campaignId)) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
       const campaign = await storage.getCampaign(req.params.campaignId);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+      if (dbUser.role !== "superadmin" && dbUser.role !== "viewer" && campaign.companyId !== dbUser.companyId) {
         return res.status(403).json({ error: "Access denied" });
       }
       const recipients = await storage.getCampaignRecipientsByCampaign(req.params.campaignId);
@@ -1392,14 +1410,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email Events API (for tracking)
-  app.get("/api/campaigns/:campaignId/events", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+  app.get("/api/campaigns/:campaignId/events", isAuthenticated, requireRole("superadmin", "admin", "manager", "viewer"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
+      
+      // Viewers can only access their assigned campaigns
+      if (dbUser.role === "viewer") {
+        const viewerAccess = await storage.getViewerCampaignAccess(dbUser.id);
+        const allowedCampaignIds = viewerAccess.map(a => a.campaignId);
+        if (!allowedCampaignIds.includes(req.params.campaignId)) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
       const campaign = await storage.getCampaign(req.params.campaignId);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+      if (dbUser.role !== "superadmin" && dbUser.role !== "viewer" && campaign.companyId !== dbUser.companyId) {
         return res.status(403).json({ error: "Access denied" });
       }
       const events = await storage.getEmailEventsByCampaign(req.params.campaignId);
@@ -1525,18 +1553,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Collected Data API
-  app.get("/api/collected-data", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+  app.get("/api/collected-data", isAuthenticated, requireRole("superadmin", "admin", "manager", "viewer"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
       const campaignId = req.query.campaignId as string;
       if (!campaignId) {
         return res.json([]);
       }
+      
+      // Viewers can only access their assigned campaigns
+      if (dbUser.role === "viewer") {
+        const viewerAccess = await storage.getViewerCampaignAccess(dbUser.id);
+        const allowedCampaignIds = viewerAccess.map(a => a.campaignId);
+        if (!allowedCampaignIds.includes(campaignId)) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
       const campaign = await storage.getCampaign(campaignId);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+      if (dbUser.role !== "superadmin" && dbUser.role !== "viewer" && campaign.companyId !== dbUser.companyId) {
         return res.status(403).json({ error: "Access denied" });
       }
       const data = await storage.getCollectedDataByCampaign(campaignId);
