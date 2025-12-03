@@ -897,6 +897,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/campaigns/:id/launch", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      if (campaign.status !== "draft") {
+        return res.status(400).json({ error: "Campaign can only be launched from draft status" });
+      }
+      // Update campaign status to sending and set launch date
+      const updatedCampaign = await storage.updateCampaign(req.params.id, {
+        status: "sending",
+        launchDate: new Date(),
+      });
+      // If there's a contact group, count recipients
+      if (campaign.contactGroupId) {
+        const contacts = await storage.getContactsByGroup(campaign.contactGroupId);
+        if (contacts && contacts.length > 0) {
+          await storage.updateCampaignStats(req.params.id, { totalRecipients: contacts.length });
+        }
+      }
+      res.json(updatedCampaign);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to launch campaign" });
+    }
+  });
+
   // Campaign Recipients API
   app.get("/api/campaign-recipients/:campaignId", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
