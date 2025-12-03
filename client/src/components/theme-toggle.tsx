@@ -1,23 +1,16 @@
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useTheme } from "@/lib/theme";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    const initialTheme = savedTheme || "light";
-    setTheme(initialTheme);
-    document.documentElement.classList.toggle("dark", initialTheme === "dark");
-  }, []);
+  const { resolvedTheme, setTheme, theme } = useTheme();
 
   const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-    console.log('Theme toggled to:', newTheme);
+    if (theme === "system") {
+      setTheme(resolvedTheme === "light" ? "dark" : "light");
+    } else {
+      setTheme(theme === "light" ? "dark" : "light");
+    }
   };
 
   return (
@@ -27,7 +20,7 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       data-testid="button-theme-toggle"
     >
-      {theme === "light" ? (
+      {resolvedTheme === "light" ? (
         <Sun className="w-5 h-5" />
       ) : (
         <Moon className="w-5 h-5" />

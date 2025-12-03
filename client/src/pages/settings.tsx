@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Settings as SettingsIcon, User, Bell, Shield, Palette, Globe, Mail, Key, Building2, CreditCard, Users, Plus, Trash2, Edit, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage, Language } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User as UserType, Campaign } from "@shared/schema";
@@ -26,6 +27,7 @@ interface ViewerWithAccess extends Omit<UserType, 'password'> {
 export default function Settings() {
   const { toast } = useToast();
   const { language, setLanguage, t } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState("profile");
   
   const [profileData, setProfileData] = useState({
@@ -58,7 +60,7 @@ export default function Settings() {
 
   // Create viewer mutation
   const createViewerMutation = useMutation({
-    mutationFn: (data: typeof viewerForm) => apiRequest("/api/viewers", { method: "POST", body: data }),
+    mutationFn: (data: typeof viewerForm) => apiRequest("POST", "/api/viewers", data),
     onSuccess: () => {
       setIsViewerDialogOpen(false);
       resetViewerForm();
@@ -77,7 +79,7 @@ export default function Settings() {
   // Update viewer access mutation
   const updateViewerAccessMutation = useMutation({
     mutationFn: ({ id, campaignIds }: { id: string; campaignIds: string[] }) => 
-      apiRequest(`/api/viewers/${id}/access`, { method: "PATCH", body: { campaignIds } }),
+      apiRequest("PATCH", `/api/viewers/${id}/access`, { campaignIds }),
     onSuccess: () => {
       setIsViewerDialogOpen(false);
       setEditingViewer(null);
@@ -96,7 +98,7 @@ export default function Settings() {
 
   // Delete viewer mutation
   const deleteViewerMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/viewers/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/viewers/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/viewers"] });
       toast({ title: language === "ru" ? "Просмотрщик удалён" : "Viewer deleted" });
@@ -170,10 +172,7 @@ export default function Settings() {
     securityAlerts: true,
   });
 
-  const [appearance, setAppearance] = useState({
-    theme: "system",
-    compactMode: false,
-  });
+  const [compactMode, setCompactMode] = useState(false);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang as Language);
@@ -652,23 +651,31 @@ export default function Settings() {
         <TabsContent value="appearance" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Внешний вид</CardTitle>
-              <CardDescription>Настройте внешний вид приложения</CardDescription>
+              <CardTitle>{language === "ru" ? "Внешний вид" : "Appearance"}</CardTitle>
+              <CardDescription>{language === "ru" ? "Настройте внешний вид приложения" : "Customize the app appearance"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label>Тема</Label>
+                <Label>{language === "ru" ? "Тема" : "Theme"}</Label>
                 <Select 
-                  value={appearance.theme} 
-                  onValueChange={(value) => setAppearance({ ...appearance, theme: value })}
+                  value={theme} 
+                  onValueChange={(value) => {
+                    setTheme(value as "light" | "dark" | "system");
+                    toast({ 
+                      title: language === "ru" ? "Тема изменена" : "Theme changed",
+                      description: language === "ru" 
+                        ? (value === "light" ? "Светлая тема" : value === "dark" ? "Тёмная тема" : "Системная тема")
+                        : (value === "light" ? "Light theme" : value === "dark" ? "Dark theme" : "System theme")
+                    });
+                  }}
                 >
                   <SelectTrigger className="w-[200px]" data-testid="select-theme">
-                    <SelectValue placeholder="Выберите тему" />
+                    <SelectValue placeholder={language === "ru" ? "Выберите тему" : "Select theme"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="light">Светлая</SelectItem>
-                    <SelectItem value="dark">Темная</SelectItem>
-                    <SelectItem value="system">Системная</SelectItem>
+                    <SelectItem value="light">{language === "ru" ? "Светлая" : "Light"}</SelectItem>
+                    <SelectItem value="dark">{language === "ru" ? "Тёмная" : "Dark"}</SelectItem>
+                    <SelectItem value="system">{language === "ru" ? "Системная" : "System"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -691,12 +698,14 @@ export default function Settings() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Компактный режим</Label>
-                  <p className="text-sm text-muted-foreground">Уменьшить отступы для отображения большего контента</p>
+                  <Label>{language === "ru" ? "Компактный режим" : "Compact mode"}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "ru" ? "Уменьшить отступы для отображения большего контента" : "Reduce padding to show more content"}
+                  </p>
                 </div>
                 <Switch 
-                  checked={appearance.compactMode}
-                  onCheckedChange={(checked) => setAppearance({ ...appearance, compactMode: checked })}
+                  checked={compactMode}
+                  onCheckedChange={setCompactMode}
                 />
               </div>
             </CardContent>
