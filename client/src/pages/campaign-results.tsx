@@ -77,18 +77,21 @@ export default function CampaignResults() {
   const [activeTab, setActiveTab] = useState("overview");
   const dateLocale = language === "ru" ? ru : enUS;
 
-  const { data: campaign, isLoading: campaignLoading } = useQuery<Campaign>({
-    queryKey: [`/api/campaigns/${campaignId}`],
+  const { data: campaign, isLoading: campaignLoading, error: campaignError } = useQuery<Campaign>({
+    queryKey: ["/api/campaigns", campaignId],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}`).then(r => r.ok ? r.json() : Promise.reject(r)),
     enabled: !!campaignId,
   });
 
-  const { data: recipients = [], isLoading: recipientsLoading, refetch: refetchRecipients } = useQuery<RecipientWithContact[]>({
-    queryKey: [`/api/campaign-recipients/${campaignId}`],
+  const { data: recipients = [], isLoading: recipientsLoading, error: recipientsError } = useQuery<RecipientWithContact[]>({
+    queryKey: ["/api/campaign-recipients", campaignId],
+    queryFn: () => fetch(`/api/campaign-recipients/${campaignId}`).then(r => r.ok ? r.json() : Promise.reject(r)),
     enabled: !!campaignId,
   });
 
-  const { data: collectedData = [] } = useQuery<CollectedData[]>({
-    queryKey: [`/api/collected-data?campaignId=${campaignId}`],
+  const { data: collectedData = [], isLoading: collectedDataLoading, error: collectedDataError } = useQuery<CollectedData[]>({
+    queryKey: ["/api/collected-data", campaignId],
+    queryFn: () => fetch(`/api/collected-data?campaignId=${campaignId}`).then(r => r.ok ? r.json() : Promise.reject(r)),
     enabled: !!campaignId,
   });
 

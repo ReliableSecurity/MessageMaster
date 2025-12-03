@@ -4,6 +4,13 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Added detailed campaign results page (GoPhish-style)
+  - Route: /campaigns/:id shows full campaign statistics
+  - Conversion funnel: Sent → Opened → Clicked → Credentials Submitted
+  - Recipients table with status badges and timestamps
+  - Collected data section showing submitted credentials
+  - Campaign overview with linked template, landing page, SMTP profile
+  - Settings page "Просмотр" tab contains viewer management
 - **2025-12-03**: Restructured navigation to avoid confusion
   - Removed "Компании" from sidebar (available in Admin Panel only)
   - Renamed: "Кампании" → "Тесты", "Пользователи и группы" → "Контакты"
