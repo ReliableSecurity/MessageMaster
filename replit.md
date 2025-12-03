@@ -4,6 +4,11 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Added comprehensive multi-tenant resource ownership validation
+  - POST/PATCH /api/campaigns validates that templateId, emailServiceId, contactGroupId, landingPageId belong to campaign's company
+  - Campaign launch re-validates all resource ownership before sending
+  - Global resources (isGlobal=true templates/landing pages) can be used by any company
+  - Prevents cross-tenant resource injection attacks
 - **2025-12-03**: Implemented email sending engine with SMTP support
   - Created server/emailService.ts with nodemailer integration
   - POST /api/campaigns/:id/launch now actually sends emails via SMTP
