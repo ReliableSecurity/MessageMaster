@@ -30,6 +30,7 @@ import Team from "@/pages/team";
 import Analytics from "@/pages/analytics";
 import Settings from "@/pages/settings";
 import Admin from "@/pages/admin";
+import Recipients from "@/pages/recipients";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -43,6 +44,7 @@ function AuthenticatedRouter() {
       <Route path="/responses" component={Responses} />
       <Route path="/companies" component={Companies} />
       <Route path="/campaigns" component={Campaigns} />
+      <Route path="/recipients" component={Recipients} />
       <Route path="/contacts" component={Contacts} />
       <Route path="/team" component={Team} />
       <Route path="/analytics" component={Analytics} />

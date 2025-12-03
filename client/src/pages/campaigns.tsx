@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Search, Mail, Send, Clock, CheckCircle2, XCircle, Pause, MoreHorizontal, Eye, Copy, Trash2, Play } from "lucide-react";
+import { Plus, Search, Mail, Send, Clock, CheckCircle2, XCircle, Pause, MoreHorizontal, Eye, Copy, Trash2, Play, UserCheck } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,7 +36,7 @@ export default function Campaigns() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/campaigns/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       toast({ title: "Кампания удалена" });
@@ -256,6 +257,12 @@ export default function Campaigns() {
                                 <DropdownMenuItem>
                                   <Eye className="w-4 h-4 mr-2" />
                                   Просмотр
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                  <Link href="/recipients" className="flex items-center cursor-pointer">
+                                    <UserCheck className="w-4 h-4 mr-2" />
+                                    Получатели
+                                  </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem>
                                   <Copy className="w-4 h-4 mr-2" />

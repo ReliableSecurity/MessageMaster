@@ -803,6 +803,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Campaign Recipients API
+  app.get("/api/campaign-recipients/:campaignId", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const campaign = await storage.getCampaign(req.params.campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const recipients = await storage.getCampaignRecipientsByCampaign(req.params.campaignId);
+      const contacts = await storage.getContactsByCompany(campaign.companyId);
+      const contactsMap = new Map(contacts.map(c => [c.id, c]));
+      const recipientsWithContacts = recipients.map(r => ({
+        ...r,
+        contact: contactsMap.get(r.contactId)
+      }));
+      res.json(recipientsWithContacts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch campaign recipients" });
+    }
+  });
+
+  app.post("/api/campaign-recipients", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const { campaignId, contactIds } = req.body;
+      
+      if (!campaignId || !Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ error: "Invalid request: campaignId and contactIds required" });
+      }
+      
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const recipients = contactIds.map((contactId: string) => ({
+        campaignId,
+        contactId,
+        status: "pending" as const,
+      }));
+      
+      const createdRecipients = await storage.createCampaignRecipientsBulk(recipients);
+      
+      await storage.updateCampaign(campaignId, {
+        totalRecipients: (campaign.totalRecipients || 0) + createdRecipients.length
+      });
+      
+      res.status(201).json(createdRecipients);
+    } catch (error) {
+      console.error("Error adding recipients:", error);
+      res.status(500).json({ error: "Failed to add recipients" });
+    }
+  });
+
+  app.post("/api/campaign-recipients/import", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const { campaignId, contacts: contactsData } = req.body;
+      
+      if (!campaignId || !Array.isArray(contactsData) || contactsData.length === 0) {
+        return res.status(400).json({ error: "Invalid request: campaignId and contacts required" });
+      }
+      
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const existingContacts = await storage.getContactsByCompany(campaign.companyId);
+      const existingEmailMap = new Map(existingContacts.map(c => [c.email.toLowerCase(), c]));
+      
+      const newContacts: any[] = [];
+      const existingContactIds: string[] = [];
+      
+      for (const contact of contactsData) {
+        const existing = existingEmailMap.get(contact.email.toLowerCase());
+        if (existing) {
+          existingContactIds.push(existing.id);
+        } else {
+          newContacts.push({
+            email: contact.email,
+            firstName: contact.firstName || null,
+            lastName: contact.lastName || null,
+            companyId: campaign.companyId,
+            isSubscribed: true,
+          });
+        }
+      }
+      
+      let createdContacts: any[] = [];
+      if (newContacts.length > 0) {
+        createdContacts = await storage.createContactsBulk(newContacts);
+      }
+      
+      const allContactIds = [
+        ...existingContactIds,
+        ...createdContacts.map(c => c.id)
+      ];
+      
+      const recipients = allContactIds.map((contactId: string) => ({
+        campaignId,
+        contactId,
+        status: "pending" as const,
+      }));
+      
+      const createdRecipients = await storage.createCampaignRecipientsBulk(recipients);
+      
+      await storage.updateCampaign(campaignId, {
+        totalRecipients: (campaign.totalRecipients || 0) + createdRecipients.length
+      });
+      
+      res.status(201).json({
+        imported: createdRecipients.length,
+        newContacts: createdContacts.length,
+        existingContacts: existingContactIds.length
+      });
+    } catch (error) {
+      console.error("Error importing recipients:", error);
+      res.status(500).json({ error: "Failed to import recipients" });
+    }
+  });
+
+  app.delete("/api/campaign-recipients/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const recipient = await storage.getCampaignRecipient(req.params.id);
+      if (!recipient) {
+        return res.status(404).json({ error: "Recipient not found" });
+      }
+      
+      const campaign = await storage.getCampaign(recipient.campaignId);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      if (dbUser.role !== "superadmin" && campaign.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      if (recipient.status !== "pending") {
+        return res.status(400).json({ error: "Cannot remove recipient after sending" });
+      }
+      
+      await storage.deleteCampaignRecipient(req.params.id);
+      
+      await storage.updateCampaign(recipient.campaignId, {
+        totalRecipients: Math.max(0, (campaign.totalRecipients || 0) - 1)
+      });
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete recipient" });
+    }
+  });
+
   // Email Services API
   app.get("/api/email-services", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
     try {
