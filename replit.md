@@ -4,6 +4,11 @@
 Multi-tenant SaaS platform for managing email campaigns. Companies can create campaigns using templates, send mass mailings, and track responses (opens, clicks, collected data).
 
 ## Recent Changes
+- **2024-12-03**: Connected all frontend pages to backend API (services, templates, dashboard, responses, campaigns, contacts)
+- **2024-12-03**: Fixed template edit mutation to correctly pass form data with ID
+- **2024-12-03**: Fixed services form to preserve API secrets when editing (empty values are not sent)
+- **2024-12-03**: Added confirmation dialog for delete actions in responses page
+- **2024-12-03**: Dashboard now uses /api/stats for metrics with fallback to campaign aggregation
 - **2024-12-03**: Implemented Replit Auth integration with role-based access control
 - **2024-12-03**: Complete Russian localization of the interface
 - **2024-12-03**: Added sessions table for authentication persistence
