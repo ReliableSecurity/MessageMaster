@@ -11,7 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Mail, Send, Clock, CheckCircle2, XCircle, Pause, MoreHorizontal, Eye, Copy, Trash2, Play, UserCheck, Globe, Server, Users } from "lucide-react";
+import { Plus, Search, Mail, Send, Clock, CheckCircle2, XCircle, Pause, MoreHorizontal, Eye, Copy, Trash2, Play, UserCheck, Globe, Server, Users, BarChart3 } from "lucide-react";
+import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -501,10 +502,12 @@ export default function Campaigns() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem data-testid={`button-view-campaign-${campaign.id}`}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  Просмотр
-                                </DropdownMenuItem>
+                                <Link href={`/campaigns/${campaign.id}`}>
+                                  <DropdownMenuItem data-testid={`button-view-campaign-${campaign.id}`}>
+                                    <BarChart3 className="w-4 h-4 mr-2" />
+                                    Результаты
+                                  </DropdownMenuItem>
+                                </Link>
                                 <DropdownMenuItem data-testid={`button-copy-campaign-${campaign.id}`}>
                                   <Copy className="w-4 h-4 mr-2" />
                                   Дублировать

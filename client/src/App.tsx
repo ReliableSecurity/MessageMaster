@@ -30,12 +30,14 @@ import LandingPages from "@/pages/landing-pages";
 import Settings from "@/pages/settings";
 import Admin from "@/pages/admin";
 import Landing from "@/pages/landing";
+import CampaignResults from "@/pages/campaign-results";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/campaigns/:id" component={CampaignResults} />
       <Route path="/campaigns" component={Campaigns} />
       <Route path="/users-groups" component={UsersGroups} />
       <Route path="/templates" component={Templates} />
