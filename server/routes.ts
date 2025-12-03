@@ -422,6 +422,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Viewer Management API
+  // Get viewers created by the current user
+  app.get("/api/viewers", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const viewers = await storage.getViewersByParent(dbUser.id);
+      
+      // Get campaign access for each viewer
+      const viewersWithAccess = await Promise.all(viewers.map(async (viewer) => {
+        const access = await storage.getViewerCampaignAccess(viewer.id);
+        const { password: _, ...viewerWithoutPassword } = viewer;
+        return {
+          ...viewerWithoutPassword,
+          campaignIds: access.map(a => a.campaignId),
+        };
+      }));
+      
+      res.json(viewersWithAccess);
+    } catch (error) {
+      console.error("Get viewers error:", error);
+      res.status(500).json({ error: "Failed to fetch viewers" });
+    }
+  });
+
+  // Create a new viewer
+  const createViewerSchema = z.object({
+    email: z.string().email("Введите корректный email"),
+    password: z.string().min(6, "Пароль должен быть минимум 6 символов"),
+    firstName: z.string().min(1, "Введите имя"),
+    lastName: z.string().min(1, "Введите фамилию"),
+    campaignIds: z.array(z.string()).optional(),
+  });
+
+  app.post("/api/viewers", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = createViewerSchema.parse(req.body);
+      
+      // Check if email is already taken
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Пользователь с таким email уже существует" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      
+      // Create viewer
+      const viewer = await storage.createViewer({
+        email: data.email,
+        password: hashedPassword,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        companyId: dbUser.companyId,
+        isActive: true,
+      }, dbUser.id, data.campaignIds);
+      
+      const { password: _, ...viewerWithoutPassword } = viewer;
+      res.status(201).json({
+        ...viewerWithoutPassword,
+        campaignIds: data.campaignIds || [],
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Create viewer error:", error);
+      res.status(500).json({ error: "Ошибка создания просмотрщика" });
+    }
+  });
+
+  // Update viewer campaign access
+  const updateViewerAccessSchema = z.object({
+    campaignIds: z.array(z.string()),
+  });
+
+  app.patch("/api/viewers/:id/access", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const viewer = await storage.getUser(req.params.id);
+      
+      if (!viewer) {
+        return res.status(404).json({ error: "Просмотрщик не найден" });
+      }
+      
+      // Check if this viewer belongs to the current user
+      if (viewer.viewerParentId !== dbUser.id && dbUser.role !== "superadmin") {
+        return res.status(403).json({ error: "Нет доступа" });
+      }
+      
+      const data = updateViewerAccessSchema.parse(req.body);
+      await storage.setViewerCampaignAccess(req.params.id, data.campaignIds, dbUser.id);
+      
+      res.json({ message: "Доступ обновлён", campaignIds: data.campaignIds });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Update viewer access error:", error);
+      res.status(500).json({ error: "Ошибка обновления доступа" });
+    }
+  });
+
+  // Update viewer info (email, name)
+  const updateViewerSchema = z.object({
+    email: z.string().email().optional(),
+    firstName: z.string().min(1).optional(),
+    lastName: z.string().min(1).optional(),
+    isActive: z.boolean().optional(),
+  });
+
+  app.patch("/api/viewers/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const viewer = await storage.getUser(req.params.id);
+      
+      if (!viewer) {
+        return res.status(404).json({ error: "Просмотрщик не найден" });
+      }
+      
+      // Check if this viewer belongs to the current user
+      if (viewer.viewerParentId !== dbUser.id && dbUser.role !== "superadmin") {
+        return res.status(403).json({ error: "Нет доступа" });
+      }
+      
+      const data = updateViewerSchema.parse(req.body);
+      
+      // Check email uniqueness if changing
+      if (data.email && data.email !== viewer.email) {
+        const existingUser = await storage.getUserByEmail(data.email);
+        if (existingUser) {
+          return res.status(400).json({ error: "Email уже используется" });
+        }
+      }
+      
+      const updatedViewer = await storage.updateUser(req.params.id, data);
+      if (!updatedViewer) {
+        return res.status(404).json({ error: "Ошибка обновления" });
+      }
+      
+      const { password: _, ...viewerWithoutPassword } = updatedViewer;
+      res.json(viewerWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Update viewer error:", error);
+      res.status(500).json({ error: "Ошибка обновления просмотрщика" });
+    }
+  });
+
+  // Change viewer password
+  app.post("/api/viewers/:id/change-password", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const viewer = await storage.getUser(req.params.id);
+      
+      if (!viewer) {
+        return res.status(404).json({ error: "Просмотрщик не найден" });
+      }
+      
+      // Check if this viewer belongs to the current user
+      if (viewer.viewerParentId !== dbUser.id && dbUser.role !== "superadmin") {
+        return res.status(403).json({ error: "Нет доступа" });
+      }
+      
+      const data = changePasswordSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+      
+      await storage.updateUser(req.params.id, { password: hashedPassword });
+      res.json({ message: "Пароль успешно изменён" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Viewer password change error:", error);
+      res.status(500).json({ error: "Ошибка изменения пароля" });
+    }
+  });
+
+  // Delete viewer
+  app.delete("/api/viewers/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const viewer = await storage.getUser(req.params.id);
+      
+      if (!viewer) {
+        return res.status(404).json({ error: "Просмотрщик не найден" });
+      }
+      
+      // Check if this viewer belongs to the current user
+      if (viewer.viewerParentId !== dbUser.id && dbUser.role !== "superadmin") {
+        return res.status(403).json({ error: "Нет доступа" });
+      }
+      
+      await storage.deleteViewer(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete viewer error:", error);
+      res.status(500).json({ error: "Ошибка удаления просмотрщика" });
+    }
+  });
+
   // Templates API
   app.get("/api/templates", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
