@@ -25,6 +25,8 @@ import type {
   InsertEmailEvent,
   CollectedData,
   InsertCollectedData,
+  ViewerCampaignAccess,
+  InsertViewerCampaignAccess,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -125,6 +127,14 @@ export interface IStorage {
   getCollectedDataByCompany(companyId: string): Promise<CollectedData[]>;
   updateCollectedDataStatus(id: string, status: "pending" | "verified" | "flagged", reason?: string): Promise<CollectedData | undefined>;
   deleteCollectedData(id: string): Promise<void>;
+  
+  // Viewer Management
+  getViewersByParent(parentUserId: string): Promise<User[]>;
+  createViewer(viewer: InsertUser, parentUserId: string, campaignIds?: string[]): Promise<User>;
+  getViewerCampaignAccess(viewerUserId: string): Promise<ViewerCampaignAccess[]>;
+  setViewerCampaignAccess(viewerUserId: string, campaignIds: string[], grantedByUserId: string): Promise<void>;
+  getCampaignsForViewer(viewerUserId: string): Promise<Campaign[]>;
+  deleteViewer(viewerId: string): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -647,6 +657,81 @@ export class PostgresStorage implements IStorage {
 
   async deleteCollectedData(id: string): Promise<void> {
     await db.delete(schema.collectedData).where(eq(schema.collectedData.id, id));
+  }
+
+  // Viewer Management
+  async getViewersByParent(parentUserId: string): Promise<User[]> {
+    return await db.select()
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.viewerParentId, parentUserId),
+          eq(schema.users.role, "viewer")
+        )
+      )
+      .orderBy(desc(schema.users.createdAt));
+  }
+
+  async createViewer(viewer: InsertUser, parentUserId: string, campaignIds?: string[]): Promise<User> {
+    const viewerData = {
+      ...viewer,
+      role: "viewer" as const,
+      viewerParentId: parentUserId,
+    };
+    
+    const [newViewer] = await db.insert(schema.users).values(viewerData).returning();
+    
+    if (campaignIds && campaignIds.length > 0) {
+      const accessEntries = campaignIds.map(campaignId => ({
+        viewerUserId: newViewer.id,
+        campaignId,
+        grantedByUserId: parentUserId,
+      }));
+      await db.insert(schema.viewerCampaignAccess).values(accessEntries);
+    }
+    
+    return newViewer;
+  }
+
+  async getViewerCampaignAccess(viewerUserId: string): Promise<ViewerCampaignAccess[]> {
+    return await db.select()
+      .from(schema.viewerCampaignAccess)
+      .where(eq(schema.viewerCampaignAccess.viewerUserId, viewerUserId))
+      .orderBy(desc(schema.viewerCampaignAccess.createdAt));
+  }
+
+  async setViewerCampaignAccess(viewerUserId: string, campaignIds: string[], grantedByUserId: string): Promise<void> {
+    await db.delete(schema.viewerCampaignAccess)
+      .where(eq(schema.viewerCampaignAccess.viewerUserId, viewerUserId));
+    
+    if (campaignIds.length > 0) {
+      const accessEntries = campaignIds.map(campaignId => ({
+        viewerUserId,
+        campaignId,
+        grantedByUserId,
+      }));
+      await db.insert(schema.viewerCampaignAccess).values(accessEntries);
+    }
+  }
+
+  async getCampaignsForViewer(viewerUserId: string): Promise<Campaign[]> {
+    const accessEntries = await db.select()
+      .from(schema.viewerCampaignAccess)
+      .where(eq(schema.viewerCampaignAccess.viewerUserId, viewerUserId));
+    
+    if (accessEntries.length === 0) return [];
+    
+    const campaignIds = accessEntries.map(a => a.campaignId);
+    return await db.select()
+      .from(schema.campaigns)
+      .where(inArray(schema.campaigns.id, campaignIds))
+      .orderBy(desc(schema.campaigns.createdAt));
+  }
+
+  async deleteViewer(viewerId: string): Promise<void> {
+    await db.delete(schema.viewerCampaignAccess)
+      .where(eq(schema.viewerCampaignAccess.viewerUserId, viewerId));
+    await db.delete(schema.users).where(eq(schema.users.id, viewerId));
   }
 }
 
