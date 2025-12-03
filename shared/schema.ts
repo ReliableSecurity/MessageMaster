@@ -75,7 +75,7 @@ export const emailServices = pgTable("email_services", {
   companyIdIdx: index("email_services_company_id_idx").on(table.companyId),
 }));
 
-// Templates table
+// Templates table (Email Templates)
 export const templates = pgTable("templates", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -93,6 +93,25 @@ export const templates = pgTable("templates", {
 }, (table) => ({
   companyIdIdx: index("templates_company_id_idx").on(table.companyId),
   isGlobalIdx: index("templates_is_global_idx").on(table.isGlobal),
+}));
+
+// Landing Pages table (Fake login pages for credential capture)
+export const landingPages = pgTable("landing_pages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  htmlContent: text("html_content").notNull(),
+  captureCredentials: boolean("capture_credentials").notNull().default(true),
+  capturePasswords: boolean("capture_passwords").notNull().default(false),
+  redirectUrl: text("redirect_url"),
+  companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+  isGlobal: boolean("is_global").notNull().default(false),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  companyIdIdx: index("landing_pages_company_id_idx").on(table.companyId),
+  isGlobalIdx: index("landing_pages_is_global_idx").on(table.isGlobal),
 }));
 
 // Contact Groups table
@@ -127,36 +146,33 @@ export const contacts = pgTable("contacts", {
   uniqueCompanyEmail: uniqueIndex("unique_company_email_idx").on(table.companyId, table.email),
 }));
 
-// Campaigns table
+// Campaigns table (GoPhish-style: single template, landing page, sending profile, contact group)
 export const campaigns = pgTable("campaigns", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  subject: text("subject").notNull(),
   status: campaignStatusEnum("status").notNull().default("draft"),
   companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
   templateId: uuid("template_id").references(() => templates.id, { onDelete: "set null" }),
+  landingPageId: uuid("landing_page_id").references(() => landingPages.id, { onDelete: "set null" }),
   emailServiceId: uuid("email_service_id").references(() => emailServices.id, { onDelete: "set null" }),
-  fromEmail: text("from_email").notNull(),
-  fromName: text("from_name"),
-  replyTo: text("reply_to"),
-  htmlContent: text("html_content").notNull(),
-  textContent: text("text_content"),
-  scheduledFor: timestamp("scheduled_for"),
-  sentAt: timestamp("sent_at"),
+  contactGroupId: uuid("contact_group_id").references(() => contactGroups.id, { onDelete: "set null" }),
+  url: text("url"),
+  launchDate: timestamp("launch_date"),
+  sendByDate: timestamp("send_by_date"),
+  completedDate: timestamp("completed_date"),
   totalRecipients: integer("total_recipients").notNull().default(0),
   sentCount: integer("sent_count").notNull().default(0),
-  deliveredCount: integer("delivered_count").notNull().default(0),
   openedCount: integer("opened_count").notNull().default(0),
   clickedCount: integer("clicked_count").notNull().default(0),
   submittedDataCount: integer("submitted_data_count").notNull().default(0),
-  bouncedCount: integer("bounced_count").notNull().default(0),
-  unsubscribedCount: integer("unsubscribed_count").notNull().default(0),
+  emailReportedCount: integer("email_reported_count").notNull().default(0),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
   companyIdIdx: index("campaigns_company_id_idx").on(table.companyId),
   statusIdx: index("campaigns_status_idx").on(table.status),
+  contactGroupIdIdx: index("campaigns_contact_group_id_idx").on(table.contactGroupId),
 }));
 
 // Campaign Recipients table (many-to-many between campaigns and contacts)
@@ -264,15 +280,21 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   updatedAt: true,
 });
 
+export const insertLandingPageSchema = createInsertSchema(landingPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   id: true,
+  totalRecipients: true,
   sentCount: true,
-  deliveredCount: true,
   openedCount: true,
   clickedCount: true,
-  bouncedCount: true,
-  unsubscribedCount: true,
-  sentAt: true,
+  submittedDataCount: true,
+  emailReportedCount: true,
+  completedDate: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -324,6 +346,9 @@ export type InsertEmailService = z.infer<typeof insertEmailServiceSchema>;
 
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+
+export type LandingPage = typeof landingPages.$inferSelect;
+export type InsertLandingPage = z.infer<typeof insertLandingPageSchema>;
 
 export type ContactGroup = typeof contactGroups.$inferSelect;
 export type InsertContactGroup = z.infer<typeof insertContactGroupSchema>;
