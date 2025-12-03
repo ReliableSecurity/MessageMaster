@@ -18,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/lib/i18n";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import type { Campaign, Template, LandingPage, EmailService, ContactGroup } from "@shared/schema";
@@ -47,6 +48,7 @@ export default function Campaigns() {
   const [activeTab, setActiveTab] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: campaigns, isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -145,8 +147,8 @@ export default function Campaigns() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">Кампании</h1>
-          <p className="text-muted-foreground mt-1">Управление фишинг-кампаниями</p>
+          <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">{t("campaigns.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("campaigns.subtitle")}</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -390,9 +392,9 @@ export default function Campaigns() {
         <TabsContent value={activeTab} className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Кампании</CardTitle>
+              <CardTitle>{t("campaigns.title")}</CardTitle>
               <CardDescription>
-                {isLoading ? "Загрузка..." : `${filteredCampaigns.length} кампаний`}
+                {isLoading ? t("common.loading") : `${filteredCampaigns.length} ${t("campaigns.title").toLowerCase()}`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -405,7 +407,7 @@ export default function Campaigns() {
               ) : filteredCampaigns.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Кампании не найдены</p>
+                  <p>{t("campaigns.notFound")}</p>
                   <Button 
                     variant="outline" 
                     className="mt-4"

@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLanguage } from "@/lib/i18n";
 import { parseCSV, type ParsedContact } from "@/lib/csv-utils";
 
 interface UserWithCompany {
@@ -437,6 +438,7 @@ function EditCompanyDialog({
 
 export default function Admin() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [editingUser, setEditingUser] = useState<UserWithCompany | null>(null);
   const [changingPassword, setChangingPassword] = useState<UserWithCompany | null>(null);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -567,7 +569,7 @@ export default function Admin() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Компании</CardDescription>
+              <CardDescription>{t("admin.organizations")}</CardDescription>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-green-500" />
                 {stats.totalStats.totalCompanies}
@@ -576,7 +578,7 @@ export default function Admin() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Кампании</CardDescription>
+              <CardDescription>{t("admin.tests")}</CardDescription>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Target className="h-5 w-5 text-orange-500" />
                 {stats.totalStats.totalCampaigns}
@@ -636,19 +638,19 @@ export default function Admin() {
         <TabsList>
           <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
             <Users className="h-4 w-4" />
-            Пользователи
+            {t("admin.users")}
           </TabsTrigger>
           <TabsTrigger value="companies" className="gap-2" data-testid="tab-companies">
             <Building2 className="h-4 w-4" />
-            Компании
+            {t("admin.organizations")}
           </TabsTrigger>
           <TabsTrigger value="stats" className="gap-2" data-testid="tab-stats">
             <BarChart3 className="h-4 w-4" />
-            Детальная статистика
+            {t("admin.statistics")}
           </TabsTrigger>
           <TabsTrigger value="export-import" className="gap-2" data-testid="tab-export-import">
             <FileSpreadsheet className="h-4 w-4" />
-            Экспорт / Импорт
+            {t("admin.exportImport")}
           </TabsTrigger>
         </TabsList>
 
@@ -802,10 +804,10 @@ export default function Admin() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Компания</TableHead>
-                        <TableHead className="text-center">Пользователи</TableHead>
-                        <TableHead className="text-center">Кампании</TableHead>
-                        <TableHead className="text-center">Контакты</TableHead>
+                        <TableHead>{t("admin.organizations")}</TableHead>
+                        <TableHead className="text-center">{t("admin.users")}</TableHead>
+                        <TableHead className="text-center">{t("admin.tests")}</TableHead>
+                        <TableHead className="text-center">{t("admin.totalContacts")}</TableHead>
                         <TableHead className="text-center">Отправлено</TableHead>
                         <TableHead className="text-center">Открыто</TableHead>
                         <TableHead className="text-center">Клики</TableHead>
@@ -846,9 +848,9 @@ export default function Admin() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Пользователь</TableHead>
-                        <TableHead>Компания</TableHead>
-                        <TableHead className="text-center">Кампании</TableHead>
+                        <TableHead>{t("admin.users")}</TableHead>
+                        <TableHead>{t("admin.organizations")}</TableHead>
+                        <TableHead className="text-center">{t("admin.tests")}</TableHead>
                         <TableHead className="text-center">Отправлено</TableHead>
                         <TableHead className="text-center">Открыто</TableHead>
                         <TableHead className="text-center">Клики</TableHead>

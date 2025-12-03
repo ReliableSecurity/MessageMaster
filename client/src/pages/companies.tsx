@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/lib/i18n";
 import type { Company } from "@shared/schema";
 
 const companyFormSchema = z.object({
@@ -32,6 +33,7 @@ export default function Companies() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: companies, isLoading } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
@@ -114,8 +116,8 @@ export default function Companies() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">Компании</h1>
-          <p className="text-muted-foreground mt-1">Управление компаниями на платформе</p>
+          <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">{t("admin.organizations")}</h1>
+          <p className="text-muted-foreground mt-1">{t("nav.companies")}</p>
         </div>
         <Dialog open={isCreateDialogOpen || !!editingCompany} onOpenChange={(open) => {
           if (!open) {
@@ -250,7 +252,7 @@ export default function Companies() {
           ) : filteredCompanies.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Компании не найдены</p>
+              <p>{t("admin.noOrganizations")}</p>
             </div>
           ) : (
             <Table>

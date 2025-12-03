@@ -36,7 +36,7 @@ const translations = {
     "dashboard.title": "Главная",
     "dashboard.subtitle": "PhishGuard Administration - Обзор email-кампаний",
     "dashboard.newCampaign": "Новая кампания",
-    "dashboard.campaigns": "Кампании",
+    "dashboard.campaigns": "Тесты",
     "dashboard.sent": "Отправлено",
     "dashboard.allTime": "писем за всё время",
     "dashboard.opened": "Открыто",
@@ -53,14 +53,14 @@ const translations = {
     "dashboard.createFirstCampaign": "Создайте первую кампанию для начала работы",
     
     // Campaigns
-    "campaigns.title": "Кампании",
-    "campaigns.subtitle": "Управление фишинг-кампаниями",
+    "campaigns.title": "Тесты",
+    "campaigns.subtitle": "Управление фишинг-тестами",
     "campaigns.create": "Создать кампанию",
     "campaigns.total": "Всего кампаний",
     "campaigns.drafts": "Черновики",
     "campaigns.sending": "Отправляются",
     "campaigns.completed": "Отправлены",
-    "campaigns.notFound": "Кампании не найдены",
+    "campaigns.notFound": "Тесты не найдены",
     "campaigns.createFirst": "Создать первую кампанию",
     "campaigns.new": "Новая кампания",
     "campaigns.name": "Название кампании",
@@ -240,6 +240,20 @@ const translations = {
     "viewers.created": "Просмотрщик создан",
     "viewers.createdDesc": "Аккаунт просмотрщика успешно создан",
     "viewers.readOnlyAccess": "Только просмотр",
+    
+    // Admin
+    "admin.title": "Админ-панель",
+    "admin.users": "Пользователи",
+    "admin.organizations": "Организации",
+    "admin.statistics": "Статистика",
+    "admin.exportImport": "Экспорт/Импорт",
+    "admin.tests": "Тесты",
+    "admin.totalUsers": "Пользователей",
+    "admin.totalOrganizations": "Организаций",
+    "admin.totalTests": "Тестов",
+    "admin.totalContacts": "Контактов",
+    "admin.noOrganizations": "Организации не найдены",
+    "admin.noUsers": "Пользователи не найдены",
     
     // Auth
     "auth.login": "Войти",
@@ -495,6 +509,20 @@ const translations = {
     "viewers.created": "Viewer created",
     "viewers.createdDesc": "Viewer account successfully created",
     "viewers.readOnlyAccess": "Read-only access",
+    
+    // Admin
+    "admin.title": "Admin Panel",
+    "admin.users": "Users",
+    "admin.organizations": "Organizations",
+    "admin.statistics": "Statistics",
+    "admin.exportImport": "Export/Import",
+    "admin.tests": "Tests",
+    "admin.totalUsers": "Users",
+    "admin.totalOrganizations": "Organizations",
+    "admin.totalTests": "Tests",
+    "admin.totalContacts": "Contacts",
+    "admin.noOrganizations": "No organizations found",
+    "admin.noUsers": "No users found",
     
     // Auth
     "auth.login": "Login",

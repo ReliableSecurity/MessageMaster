@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NewCampaignDialog } from "@/components/new-campaign-dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/lib/i18n";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import type { Campaign, Company } from "@shared/schema";
@@ -31,6 +32,7 @@ const statusConfig = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const { data: campaigns, isLoading: campaignsLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -71,7 +73,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-            <CardTitle className="text-sm font-medium">Кампании</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("dashboard.campaigns")}</CardTitle>
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
