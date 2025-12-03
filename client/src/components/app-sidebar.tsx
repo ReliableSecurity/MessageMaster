@@ -30,7 +30,6 @@ export function AppSidebar({ role, userInitials = "U", userName = "User", userEm
   const superadminItems = [
     { title: t("nav.dashboard"), url: "/", icon: LayoutDashboard },
     { title: t("nav.admin"), url: "/admin", icon: Shield },
-    { title: t("nav.companies"), url: "/companies", icon: Users },
     { title: t("nav.campaigns"), url: "/campaigns", icon: Send },
     { title: t("nav.usersGroups"), url: "/users-groups", icon: Users },
     { title: t("nav.templates"), url: "/templates", icon: Mail },

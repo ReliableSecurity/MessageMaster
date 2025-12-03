@@ -7,14 +7,14 @@ const translations = {
     // Navigation
     "nav.dashboard": "Главная",
     "nav.admin": "Админ-панель",
-    "nav.companies": "Компании",
-    "nav.campaigns": "Кампании",
-    "nav.usersGroups": "Пользователи и группы",
-    "nav.templates": "Шаблоны писем",
-    "nav.landingPages": "Фишинг-страницы",
-    "nav.sendingProfiles": "Профили отправки",
+    "nav.companies": "Организации",
+    "nav.campaigns": "Тесты",
+    "nav.usersGroups": "Контакты",
+    "nav.templates": "Шаблоны",
+    "nav.landingPages": "Лендинги",
+    "nav.sendingProfiles": "SMTP",
     "nav.settings": "Настройки",
-    "nav.navigation": "Навигация",
+    "nav.navigation": "Меню",
     
     // Common
     "common.create": "Создать",
@@ -262,14 +262,14 @@ const translations = {
     // Navigation
     "nav.dashboard": "Dashboard",
     "nav.admin": "Admin Panel",
-    "nav.companies": "Companies",
-    "nav.campaigns": "Campaigns",
-    "nav.usersGroups": "Users & Groups",
-    "nav.templates": "Email Templates",
-    "nav.landingPages": "Landing Pages",
-    "nav.sendingProfiles": "Sending Profiles",
+    "nav.companies": "Organizations",
+    "nav.campaigns": "Tests",
+    "nav.usersGroups": "Contacts",
+    "nav.templates": "Templates",
+    "nav.landingPages": "Landings",
+    "nav.sendingProfiles": "SMTP",
     "nav.settings": "Settings",
-    "nav.navigation": "Navigation",
+    "nav.navigation": "Menu",
     
     // Common
     "common.create": "Create",
