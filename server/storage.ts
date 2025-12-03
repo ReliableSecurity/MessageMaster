@@ -104,6 +104,7 @@ export interface IStorage {
     clickedCount?: number;
     submittedDataCount?: number;
     emailReportedCount?: number;
+    completedDate?: Date;
   }): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<void>;
   
@@ -501,6 +502,7 @@ export class PostgresStorage implements IStorage {
     clickedCount?: number;
     submittedDataCount?: number;
     emailReportedCount?: number;
+    completedDate?: Date;
   }): Promise<Campaign | undefined> {
     const [campaign] = await db.update(schema.campaigns)
       .set({ ...stats, updatedAt: new Date() })

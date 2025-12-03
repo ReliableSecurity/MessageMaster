@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated, requireRole, requireViewerCampaignAccess, i
 import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertLandingPageSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import { sendCampaignEmail, testSmtpConnection, sendTestEmail } from "./emailService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -1055,11 +1056,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
       const dbUser = (req as any).dbUser;
-      // Inject companyId before validation for non-superadmin users
       const bodyWithCompany = dbUser.role !== "superadmin" 
         ? { ...req.body, companyId: dbUser.companyId }
         : req.body;
       const data = insertCampaignSchema.parse(bodyWithCompany);
+      
+      const campaignCompanyId = data.companyId;
+      
+      if (data.templateId) {
+        const template = await storage.getTemplate(data.templateId);
+        if (!template) {
+          return res.status(400).json({ error: "Template not found" });
+        }
+        if (!template.isGlobal && template.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Template does not belong to this company" });
+        }
+      }
+      
+      if (data.emailServiceId) {
+        const emailService = await storage.getEmailService(data.emailServiceId);
+        if (!emailService) {
+          return res.status(400).json({ error: "Email service not found" });
+        }
+        if (emailService.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Email service does not belong to this company" });
+        }
+      }
+      
+      if (data.contactGroupId) {
+        const contactGroup = await storage.getContactGroup(data.contactGroupId);
+        if (!contactGroup) {
+          return res.status(400).json({ error: "Contact group not found" });
+        }
+        if (contactGroup.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Contact group does not belong to this company" });
+        }
+      }
+      
+      if (data.landingPageId) {
+        const landingPage = await storage.getLandingPage(data.landingPageId);
+        if (!landingPage) {
+          return res.status(400).json({ error: "Landing page not found" });
+        }
+        if (!landingPage.isGlobal && landingPage.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Landing page does not belong to this company" });
+        }
+      }
+      
       const campaign = await storage.createCampaign(data);
       res.status(201).json(campaign);
     } catch (error) {
@@ -1084,6 +1127,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (dbUser.role !== "superadmin") {
         delete (data as any).companyId;
       }
+      
+      const campaignCompanyId = existingCampaign.companyId;
+      
+      if (data.templateId) {
+        const template = await storage.getTemplate(data.templateId);
+        if (!template) {
+          return res.status(400).json({ error: "Template not found" });
+        }
+        if (!template.isGlobal && template.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Template does not belong to this company" });
+        }
+      }
+      
+      if (data.emailServiceId) {
+        const emailService = await storage.getEmailService(data.emailServiceId);
+        if (!emailService) {
+          return res.status(400).json({ error: "Email service not found" });
+        }
+        if (emailService.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Email service does not belong to this company" });
+        }
+      }
+      
+      if (data.contactGroupId) {
+        const contactGroup = await storage.getContactGroup(data.contactGroupId);
+        if (!contactGroup) {
+          return res.status(400).json({ error: "Contact group not found" });
+        }
+        if (contactGroup.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Contact group does not belong to this company" });
+        }
+      }
+      
+      if (data.landingPageId) {
+        const landingPage = await storage.getLandingPage(data.landingPageId);
+        if (!landingPage) {
+          return res.status(400).json({ error: "Landing page not found" });
+        }
+        if (!landingPage.isGlobal && landingPage.companyId !== campaignCompanyId) {
+          return res.status(403).json({ error: "Landing page does not belong to this company" });
+        }
+      }
+      
       const campaign = await storage.updateCampaign(req.params.id, data);
       res.json(campaign);
     } catch (error) {
@@ -1124,21 +1210,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (campaign.status !== "draft") {
         return res.status(400).json({ error: "Campaign can only be launched from draft status" });
       }
-      // Update campaign status to sending and set launch date
-      const updatedCampaign = await storage.updateCampaign(req.params.id, {
+      
+      if (!campaign.templateId) {
+        return res.status(400).json({ error: "Campaign must have an email template" });
+      }
+      if (!campaign.emailServiceId) {
+        return res.status(400).json({ error: "Campaign must have a sending profile (SMTP)" });
+      }
+      if (!campaign.contactGroupId) {
+        return res.status(400).json({ error: "Campaign must have a contact group" });
+      }
+      
+      const template = await storage.getTemplate(campaign.templateId);
+      if (!template) {
+        return res.status(400).json({ error: "Email template not found" });
+      }
+      if (!template.isGlobal && template.companyId !== campaign.companyId) {
+        return res.status(403).json({ error: "Template does not belong to this company" });
+      }
+      
+      const emailService = await storage.getEmailService(campaign.emailServiceId);
+      if (!emailService) {
+        return res.status(400).json({ error: "Sending profile not found" });
+      }
+      if (emailService.companyId !== campaign.companyId) {
+        return res.status(403).json({ error: "Sending profile does not belong to this company" });
+      }
+      
+      const contactGroup = await storage.getContactGroup(campaign.contactGroupId);
+      if (!contactGroup) {
+        return res.status(400).json({ error: "Contact group not found" });
+      }
+      if (contactGroup.companyId !== campaign.companyId) {
+        return res.status(403).json({ error: "Contact group does not belong to this company" });
+      }
+      
+      const contacts = await storage.getContactsByGroup(campaign.contactGroupId);
+      if (!contacts || contacts.length === 0) {
+        return res.status(400).json({ error: "No contacts in the selected group" });
+      }
+      
+      await storage.updateCampaign(req.params.id, {
         status: "sending",
         launchDate: new Date(),
       });
-      // If there's a contact group, count recipients
-      if (campaign.contactGroupId) {
-        const contacts = await storage.getContactsByGroup(campaign.contactGroupId);
-        if (contacts && contacts.length > 0) {
-          await storage.updateCampaignStats(req.params.id, { totalRecipients: contacts.length });
+      await storage.updateCampaignStats(req.params.id, { totalRecipients: contacts.length });
+      
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      let sentCount = 0;
+      const errors: string[] = [];
+      
+      for (const contact of contacts) {
+        const recipient = await storage.createCampaignRecipient({
+          campaignId: campaign.id,
+          contactId: contact.id,
+        });
+        
+        const result = await sendCampaignEmail(
+          emailService,
+          template,
+          contact,
+          campaign,
+          recipient.trackingId,
+          baseUrl
+        );
+        
+        if (result.success) {
+          await storage.updateCampaignRecipientStatus(recipient.id, "sent");
+          sentCount++;
+        } else {
+          errors.push(`${contact.email}: ${result.error}`);
         }
       }
-      res.json(updatedCampaign);
+      
+      await storage.updateCampaignStats(req.params.id, { 
+        sentCount,
+        completedDate: sentCount > 0 ? new Date() : undefined,
+      });
+      
+      const updatedCampaign = await storage.updateCampaign(req.params.id, {
+        status: sentCount > 0 ? "sent" : "draft",
+      });
+      
+      res.json({
+        ...updatedCampaign,
+        sentCount,
+        totalRecipients: contacts.length,
+        errors: errors.length > 0 ? errors : undefined,
+      });
     } catch (error) {
+      console.error("Campaign launch error:", error);
       res.status(500).json({ error: "Failed to launch campaign" });
+    }
+  });
+  
+  app.post("/api/email-services/:id/test", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const emailService = await storage.getEmailService(req.params.id);
+      if (!emailService) {
+        return res.status(404).json({ error: "Email service not found" });
+      }
+      if (dbUser.role !== "superadmin" && emailService.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const result = await testSmtpConnection(emailService);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to test connection" });
+    }
+  });
+  
+  app.post("/api/email-services/:id/send-test", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const emailService = await storage.getEmailService(req.params.id);
+      if (!emailService) {
+        return res.status(404).json({ error: "Email service not found" });
+      }
+      if (dbUser.role !== "superadmin" && emailService.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { toEmail } = req.body;
+      if (!toEmail) {
+        return res.status(400).json({ error: "toEmail is required" });
+      }
+      
+      const result = await sendTestEmail(emailService, toEmail);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send test email" });
     }
   });
 
