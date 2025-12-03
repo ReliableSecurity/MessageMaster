@@ -4,6 +4,10 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Added campaign launch functionality
+  - POST /api/campaigns/:id/launch - changes campaign status from draft to sending
+  - Multi-tenant check: users can only launch campaigns in their company
+  - Automatically sets launchDate and counts recipients from contact group
 - **2025-12-03**: Restructured to match GoPhish architecture
   - Added Landing Pages (/landing-pages) - fake login pages for credential capture
   - Updated navigation: Dashboard, Campaigns, Users & Groups, Email Templates, Landing Pages, Sending Profiles
