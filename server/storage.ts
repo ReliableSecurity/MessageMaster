@@ -1,7 +1,6 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool } from "@neondatabase/serverless";
 import * as schema from "@shared/schema";
 import { eq, and, desc, sql, inArray, or } from "drizzle-orm";
+import { db } from "./db";
 import type {
   User,
   InsertUser,
@@ -26,19 +25,21 @@ import type {
   InsertCollectedData,
 } from "@shared/schema";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-export const db = drizzle(pool, { schema });
-
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByReplitId(replitUserId: string): Promise<User | undefined>;
   getUsersByCompany(companyId: string): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
   upsertUser(user: UpsertUser): Promise<User>;
+  
+  // Campaign Recipients (tracking)
+  getCampaignRecipientByTrackingId(trackingId: string): Promise<CampaignRecipient | undefined>;
+  updateCampaignRecipientStatus(id: string, status: "pending" | "sent" | "opened" | "clicked" | "submitted_data", timestamp?: Date): Promise<CampaignRecipient | undefined>;
   
   // Companies
   getCompany(id: string): Promise<Company | undefined>;
@@ -71,6 +72,7 @@ export interface IStorage {
   // Contacts
   getContact(id: string): Promise<Contact | undefined>;
   getContactsByCompany(companyId: string): Promise<Contact[]>;
+  getAllContacts(): Promise<Contact[]>;
   getContactsByGroup(groupId: string): Promise<Contact[]>;
   createContact(contact: InsertContact): Promise<Contact>;
   createContactsBulk(contacts: InsertContact[]): Promise<Contact[]>;
@@ -80,6 +82,7 @@ export interface IStorage {
   // Campaigns
   getCampaign(id: string): Promise<Campaign | undefined>;
   getCampaignsByCompany(companyId: string): Promise<Campaign[]>;
+  getAllCampaigns(): Promise<Campaign[]>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, campaign: Partial<InsertCampaign>): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<void>;
@@ -144,6 +147,10 @@ export class PostgresStorage implements IStorage {
     return await db.select().from(schema.users)
       .where(eq(schema.users.companyId, companyId))
       .orderBy(desc(schema.users.createdAt));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(schema.users).orderBy(desc(schema.users.createdAt));
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
@@ -318,6 +325,11 @@ export class PostgresStorage implements IStorage {
       .orderBy(desc(schema.contacts.createdAt));
   }
 
+  async getAllContacts(): Promise<Contact[]> {
+    return await db.select().from(schema.contacts)
+      .orderBy(desc(schema.contacts.createdAt));
+  }
+
   async getContactsByGroup(groupId: string): Promise<Contact[]> {
     return await db.select().from(schema.contacts)
       .where(eq(schema.contacts.groupId, groupId))
@@ -358,6 +370,11 @@ export class PostgresStorage implements IStorage {
   async getCampaignsByCompany(companyId: string): Promise<Campaign[]> {
     return await db.select().from(schema.campaigns)
       .where(eq(schema.campaigns.companyId, companyId))
+      .orderBy(desc(schema.campaigns.createdAt));
+  }
+
+  async getAllCampaigns(): Promise<Campaign[]> {
+    return await db.select().from(schema.campaigns)
       .orderBy(desc(schema.campaigns.createdAt));
   }
 
@@ -410,6 +427,42 @@ export class PostgresStorage implements IStorage {
 
   async deleteCampaignRecipientsByCampaign(campaignId: string): Promise<void> {
     await db.delete(schema.campaignRecipients).where(eq(schema.campaignRecipients.campaignId, campaignId));
+  }
+
+  async getCampaignRecipientByTrackingId(trackingId: string): Promise<CampaignRecipient | undefined> {
+    const [recipient] = await db.select().from(schema.campaignRecipients)
+      .where(eq(schema.campaignRecipients.trackingId, trackingId));
+    return recipient;
+  }
+
+  async updateCampaignRecipientStatus(
+    id: string, 
+    status: "pending" | "sent" | "opened" | "clicked" | "submitted_data",
+    timestamp?: Date
+  ): Promise<CampaignRecipient | undefined> {
+    const now = timestamp || new Date();
+    const updateData: any = { status };
+    
+    switch(status) {
+      case "sent":
+        updateData.sentAt = now;
+        break;
+      case "opened":
+        updateData.openedAt = now;
+        break;
+      case "clicked":
+        updateData.clickedAt = now;
+        break;
+      case "submitted_data":
+        updateData.submittedDataAt = now;
+        break;
+    }
+    
+    const [recipient] = await db.update(schema.campaignRecipients)
+      .set(updateData)
+      .where(eq(schema.campaignRecipients.id, id))
+      .returning();
+    return recipient;
   }
 
   // Email Events

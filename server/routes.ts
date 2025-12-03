@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
 import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -13,12 +14,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
+      // Check for local auth user (already has dbUser set by isAuthenticated)
+      if (req.user?.localAuth && req.dbUser) {
+        const { password: _, ...userWithoutPassword } = req.dbUser;
+        return res.json(userWithoutPassword);
+      }
+      
+      // Replit OAuth user
       const replitUserId = req.user.claims.sub;
       const user = await storage.getUserByReplitId(replitUserId);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Registration endpoint
+  const registerSchema = z.object({
+    email: z.string().email("Введите корректный email"),
+    password: z.string().min(6, "Пароль должен быть минимум 6 символов"),
+    firstName: z.string().min(1, "Введите имя"),
+    lastName: z.string().min(1, "Введите фамилию"),
+    companyName: z.string().min(1, "Введите название компании"),
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      console.log("Register request body:", JSON.stringify(req.body));
+      const data = registerSchema.parse(req.body);
+      console.log("Parsed data:", JSON.stringify(data));
+      
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Пользователь с таким email уже существует" });
+      }
+      console.log("No existing user found");
+      
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      console.log("Password hashed");
+      
+      const company = await storage.createCompany({
+        name: data.companyName,
+        contactEmail: data.email,
+        isActive: true,
+      });
+      console.log("Company created:", company.id);
+      
+      const user = await storage.createUser({
+        email: data.email,
+        password: hashedPassword,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: "admin",
+        companyId: company.id,
+        isActive: true,
+      });
+      console.log("User created:", user.id);
+      
+      // Set up session for auto-login after registration
+      (req.session as any).userId = user.id;
+      
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json({ user: userWithoutPassword, company });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", error.errors);
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Ошибка регистрации" });
+    }
+  });
+
+  // Login with email/password endpoint
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string(),
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const data = loginSchema.parse(req.body);
+      
+      const user = await storage.getUserByEmail(data.email);
+      if (!user || !user.password) {
+        return res.status(401).json({ error: "Неверный email или пароль" });
+      }
+      
+      const isValidPassword = await bcrypt.compare(data.password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Неверный email или пароль" });
+      }
+      
+      if (!user.isActive) {
+        return res.status(403).json({ error: "Аккаунт деактивирован" });
+      }
+      
+      (req.session as any).userId = user.id;
+      
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Введите корректные данные" });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Ошибка входа" });
     }
   });
 
@@ -684,23 +786,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/track/open/:trackingId", async (req, res) => {
     try {
+      const { trackingId } = req.params;
+      const recipient = await storage.getCampaignRecipientByTrackingId(trackingId);
+      if (recipient && !recipient.openedAt) {
+        await storage.updateCampaignRecipientStatus(recipient.id, "opened");
+        await storage.updateCampaign(recipient.campaignId, {});
+        const campaign = await storage.getCampaign(recipient.campaignId);
+        if (campaign) {
+          await storage.updateCampaign(recipient.campaignId, { 
+            openedCount: campaign.openedCount + 1 
+          } as any);
+        }
+        await storage.createEmailEvent({
+          campaignId: recipient.campaignId,
+          recipientId: recipient.id,
+          trackingId: recipient.trackingId,
+          eventType: "opened",
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent") || null,
+        });
+      }
       res.setHeader("Content-Type", "image/gif");
       res.send(Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
     } catch (error) {
-      res.status(500).send();
+      console.error("Track open error:", error);
+      res.setHeader("Content-Type", "image/gif");
+      res.send(Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
     }
   });
 
   app.get("/api/track/click/:trackingId", async (req, res) => {
     try {
+      const { trackingId } = req.params;
       const url = req.query.url as string;
+      
+      const recipient = await storage.getCampaignRecipientByTrackingId(trackingId);
+      if (recipient && !recipient.clickedAt) {
+        await storage.updateCampaignRecipientStatus(recipient.id, "clicked");
+        const campaign = await storage.getCampaign(recipient.campaignId);
+        if (campaign) {
+          await storage.updateCampaign(recipient.campaignId, { 
+            clickedCount: campaign.clickedCount + 1 
+          } as any);
+        }
+        await storage.createEmailEvent({
+          campaignId: recipient.campaignId,
+          recipientId: recipient.id,
+          trackingId: recipient.trackingId,
+          eventType: "clicked",
+          clickedUrl: url,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent") || null,
+        });
+      }
+      
       if (url) {
         res.redirect(url);
       } else {
         res.status(400).json({ error: "Missing URL" });
       }
     } catch (error) {
-      res.status(500).json({ error: "Failed to track click" });
+      console.error("Track click error:", error);
+      const url = req.query.url as string;
+      if (url) {
+        res.redirect(url);
+      } else {
+        res.status(500).json({ error: "Failed to track click" });
+      }
+    }
+  });
+
+  app.post("/api/track/submit/:trackingId", async (req, res) => {
+    try {
+      const { trackingId } = req.params;
+      const { username, password, ...otherFields } = req.body;
+      
+      const recipient = await storage.getCampaignRecipientByTrackingId(trackingId);
+      if (!recipient) {
+        return res.status(404).json({ error: "Invalid tracking ID" });
+      }
+      
+      if (!recipient.submittedDataAt) {
+        await storage.updateCampaignRecipientStatus(recipient.id, "submitted_data");
+        const campaign = await storage.getCampaign(recipient.campaignId);
+        if (campaign) {
+          await storage.updateCampaign(recipient.campaignId, { 
+            submittedDataCount: (campaign.submittedDataCount || 0) + 1 
+          } as any);
+        }
+      }
+      
+      const contact = await storage.getContact(recipient.contactId);
+      
+      await storage.createCollectedData({
+        campaignId: recipient.campaignId,
+        recipientId: recipient.id,
+        dataType: "credentials",
+        status: "pending",
+        fields: {
+          username: username || "",
+          password: password || "",
+          ...otherFields,
+        },
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+      } as any);
+      
+      res.json({ success: true, message: "Данные получены" });
+    } catch (error) {
+      console.error("Track submit error:", error);
+      res.status(500).json({ error: "Failed to record submission" });
     }
   });
 
@@ -792,17 +987,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         targetCompanyId = dbUser.companyId;
       }
+      
+      const campaigns = targetCompanyId 
+        ? await storage.getCampaignsByCompany(targetCompanyId)
+        : await storage.getAllCampaigns();
+      
+      const contacts = targetCompanyId
+        ? await storage.getContactsByCompany(targetCompanyId)
+        : await storage.getAllContacts();
+      
+      const totalSent = campaigns.reduce((sum, c) => sum + c.sentCount, 0);
+      const totalOpened = campaigns.reduce((sum, c) => sum + c.openedCount, 0);
+      const totalClicked = campaigns.reduce((sum, c) => sum + c.clickedCount, 0);
+      const totalSubmitted = campaigns.reduce((sum, c) => sum + (c.submittedDataCount || 0), 0);
+      
       res.json({
-        totalCampaigns: 0,
-        totalContacts: 0,
-        totalSent: 0,
-        totalOpened: 0,
-        totalClicked: 0,
-        openRate: 0,
-        clickRate: 0,
+        totalCampaigns: campaigns.length,
+        totalContacts: contacts.length,
+        totalSent,
+        totalOpened,
+        totalClicked,
+        totalSubmitted,
+        openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
+        clickRate: totalSent > 0 ? Math.round((totalClicked / totalSent) * 100) : 0,
+        submitRate: totalSent > 0 ? Math.round((totalSubmitted / totalSent) * 100) : 0,
       });
     } catch (error) {
+      console.error("Stats error:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Admin stats - all users statistics
+  app.get("/api/admin/stats", isAuthenticated, requireRole("superadmin"), async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const companies = await storage.getAllCompanies();
+      const campaigns = await storage.getAllCampaigns();
+      
+      const userStats = await Promise.all(users.map(async (user) => {
+        const userCampaigns = campaigns.filter(c => c.companyId === user.companyId);
+        const totalSent = userCampaigns.reduce((sum, c) => sum + c.sentCount, 0);
+        const totalOpened = userCampaigns.reduce((sum, c) => sum + c.openedCount, 0);
+        const totalClicked = userCampaigns.reduce((sum, c) => sum + c.clickedCount, 0);
+        const totalSubmitted = userCampaigns.reduce((sum, c) => sum + (c.submittedDataCount || 0), 0);
+        
+        const company = companies.find(c => c.id === user.companyId);
+        
+        return {
+          userId: user.id,
+          userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          userEmail: user.email,
+          role: user.role,
+          companyName: company?.name || 'Без компании',
+          totalCampaigns: userCampaigns.length,
+          totalSent,
+          totalOpened,
+          totalClicked,
+          totalSubmitted,
+          openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
+          clickRate: totalSent > 0 ? Math.round((totalClicked / totalSent) * 100) : 0,
+          submitRate: totalSent > 0 ? Math.round((totalSubmitted / totalSent) * 100) : 0,
+        };
+      }));
+      
+      const totalStats = {
+        totalUsers: users.length,
+        totalCompanies: companies.length,
+        totalCampaigns: campaigns.length,
+        totalSent: campaigns.reduce((sum, c) => sum + c.sentCount, 0),
+        totalOpened: campaigns.reduce((sum, c) => sum + c.openedCount, 0),
+        totalClicked: campaigns.reduce((sum, c) => sum + c.clickedCount, 0),
+        totalSubmitted: campaigns.reduce((sum, c) => sum + (c.submittedDataCount || 0), 0),
+      };
+      
+      res.json({ userStats, totalStats });
+    } catch (error) {
+      console.error("Admin stats error:", error);
+      res.status(500).json({ error: "Failed to fetch admin stats" });
     }
   });
 

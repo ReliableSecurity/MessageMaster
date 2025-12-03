@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Mail, Users, Eye, MousePointerClick } from "lucide-react";
+import { Mail, Users, Eye, MousePointerClick, FileKey } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ interface DashboardStats {
   totalSent: number;
   totalOpened: number;
   totalClicked: number;
+  totalSubmitted: number;
+  submitRate: number;
 }
 
 const statusConfig = {
@@ -49,6 +51,7 @@ export default function Dashboard() {
     sent: stats?.totalSent ?? campaigns?.reduce((acc, c) => acc + c.sentCount, 0) ?? 0,
     opened: stats?.totalOpened ?? campaigns?.reduce((acc, c) => acc + c.openedCount, 0) ?? 0,
     clicked: stats?.totalClicked ?? campaigns?.reduce((acc, c) => acc + c.clickedCount, 0) ?? 0,
+    submitted: stats?.totalSubmitted ?? campaigns?.reduce((acc, c) => acc + (c.submittedDataCount || 0), 0) ?? 0,
   };
 
   const isLoading = campaignsLoading || statsLoading;
@@ -65,7 +68,7 @@ export default function Dashboard() {
         <NewCampaignDialog />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
             <CardTitle className="text-sm font-medium">Кампании</CardTitle>
@@ -145,6 +148,27 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+            <CardTitle className="text-sm font-medium">Данные собраны</CardTitle>
+            <FileKey className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold" data-testid="stat-submitted">
+                  {totals.submitted.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {totals.clicked > 0 ? Math.round((totals.submitted / totals.clicked) * 100) : 0}% от переходов
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {company && (
@@ -213,6 +237,7 @@ export default function Dashboard() {
                   <TableHead>Отправлено</TableHead>
                   <TableHead>Открыто</TableHead>
                   <TableHead>Клики</TableHead>
+                  <TableHead>Данные</TableHead>
                   <TableHead>Дата</TableHead>
                 </TableRow>
               </TableHeader>
@@ -224,6 +249,9 @@ export default function Dashboard() {
                     : 0;
                   const clickRate = campaign.openedCount > 0 
                     ? Math.round((campaign.clickedCount / campaign.openedCount) * 100) 
+                    : 0;
+                  const submitRate = campaign.clickedCount > 0
+                    ? Math.round(((campaign.submittedDataCount || 0) / campaign.clickedCount) * 100)
                     : 0;
 
                   return (
@@ -248,6 +276,12 @@ export default function Dashboard() {
                         {campaign.clickedCount.toLocaleString()}
                         {campaign.openedCount > 0 && (
                           <span className="text-xs text-muted-foreground ml-1">({clickRate}%)</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(campaign.submittedDataCount || 0).toLocaleString()}
+                        {campaign.clickedCount > 0 && (
+                          <span className="text-xs text-muted-foreground ml-1">({submitRate}%)</span>
                         )}
                       </TableCell>
                       <TableCell>

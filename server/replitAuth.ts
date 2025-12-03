@@ -132,9 +132,25 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Check for local session authentication first
+  const sessionUserId = (req.session as any).userId;
+  if (sessionUserId) {
+    try {
+      const dbUser = await storage.getUser(sessionUserId);
+      if (dbUser && dbUser.isActive) {
+        (req as any).dbUser = dbUser;
+        (req as any).user = { localAuth: true, userId: sessionUserId };
+        return next();
+      }
+    } catch (error) {
+      console.error("Error checking local session:", error);
+    }
+  }
+  
+  // Check for Replit OAuth authentication
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user?.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -163,6 +179,17 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 export function requireRole(...allowedRoles: string[]): RequestHandler {
   return async (req, res, next) => {
     const user = req.user as any;
+    
+    // Check for local auth user (already has dbUser set by isAuthenticated)
+    if (user?.localAuth && (req as any).dbUser) {
+      const dbUser = (req as any).dbUser;
+      if (!allowedRoles.includes(dbUser.role)) {
+        return res.status(403).json({ message: "Forbidden: insufficient permissions" });
+      }
+      return next();
+    }
+    
+    // Check for Replit OAuth user
     if (!user?.claims?.sub) {
       return res.status(401).json({ message: "Unauthorized" });
     }
