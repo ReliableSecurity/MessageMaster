@@ -4,6 +4,9 @@
 Multi-tenant SaaS platform for managing email campaigns with phishing simulation capabilities (similar to GoPhish). Companies can create campaigns using templates, send mass mailings, and track recipient engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Fixed database connection - storage.ts now uses shared db from db.ts with proper Neon WebSocket config
+- **2025-12-03**: Updated isAuthenticated middleware to support both local session and Replit OAuth
+- **2025-12-03**: Auto-login after registration - users are automatically logged in after registering
 - **2024-12-03**: Added phishing simulation tracking - recipient status flow: sent → opened → clicked → credentials_submitted
 - **2024-12-03**: Added local user registration (email/password) with bcrypt hashing
 - **2024-12-03**: Added auth dialog on landing page with tabs for login and registration
