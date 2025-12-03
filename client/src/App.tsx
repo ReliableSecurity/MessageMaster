@@ -21,16 +21,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Dashboard from "@/pages/dashboard";
 import Templates from "@/pages/templates";
-import Services from "@/pages/services";
-import Responses from "@/pages/responses";
+import SendingProfiles from "@/pages/sending-profiles";
 import Companies from "@/pages/companies";
 import Campaigns from "@/pages/campaigns";
-import Contacts from "@/pages/contacts";
-import Team from "@/pages/team";
-import Analytics from "@/pages/analytics";
+import UsersGroups from "@/pages/users-groups";
+import LandingPages from "@/pages/landing-pages";
 import Settings from "@/pages/settings";
 import Admin from "@/pages/admin";
-import Recipients from "@/pages/recipients";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -38,16 +35,12 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/templates" component={Templates} />
-      <Route path="/global-templates" component={Templates} />
-      <Route path="/services" component={Services} />
-      <Route path="/responses" component={Responses} />
-      <Route path="/companies" component={Companies} />
       <Route path="/campaigns" component={Campaigns} />
-      <Route path="/recipients" component={Recipients} />
-      <Route path="/contacts" component={Contacts} />
-      <Route path="/team" component={Team} />
-      <Route path="/analytics" component={Analytics} />
+      <Route path="/users-groups" component={UsersGroups} />
+      <Route path="/templates" component={Templates} />
+      <Route path="/landing-pages" component={LandingPages} />
+      <Route path="/sending-profiles" component={SendingProfiles} />
+      <Route path="/companies" component={Companies} />
       <Route path="/settings" component={Settings} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />

@@ -4,13 +4,13 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
-- **2025-12-03**: Added Recipients Management page (/recipients)
-  - Select campaign from dropdown to view/manage recipients
-  - Add contacts from existing contact list or groups
-  - Import recipients from CSV with automatic contact creation
-  - View recipient status with progress bars (pending → sent → opened → clicked → submitted_data)
-  - Remove pending recipients before campaign starts
-  - Added "Получатели" navigation in sidebar and campaigns dropdown
+- **2025-12-03**: Restructured to match GoPhish architecture
+  - Added Landing Pages (/landing-pages) - fake login pages for credential capture
+  - Updated navigation: Dashboard, Campaigns, Users & Groups, Email Templates, Landing Pages, Sending Profiles
+  - Added Landing Pages CRUD API endpoints (/api/landing-pages)
+  - Updated storage interface with landing page methods
+  - Campaigns now link to landing pages, contact groups, and templates
+  - Removed Recipients page - campaigns now target contact groups directly
 - **2025-12-03**: Added CSV import/export functionality for contacts
   - Regular users: Import contacts via CSV on /contacts page, export all contacts
   - Superadmin: Import contacts for any company via Admin panel Export/Import tab

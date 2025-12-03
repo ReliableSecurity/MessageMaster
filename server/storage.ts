@@ -11,6 +11,8 @@ import type {
   InsertEmailService,
   Template,
   InsertTemplate,
+  LandingPage,
+  InsertLandingPage,
   Contact,
   InsertContact,
   ContactGroup,
@@ -62,6 +64,13 @@ export interface IStorage {
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<void>;
   
+  // Landing Pages
+  getLandingPage(id: string): Promise<LandingPage | undefined>;
+  getLandingPagesByCompany(companyId: string | null, includeGlobal?: boolean): Promise<LandingPage[]>;
+  createLandingPage(page: InsertLandingPage): Promise<LandingPage>;
+  updateLandingPage(id: string, page: Partial<InsertLandingPage>): Promise<LandingPage | undefined>;
+  deleteLandingPage(id: string): Promise<void>;
+  
   // Contact Groups
   getContactGroup(id: string): Promise<ContactGroup | undefined>;
   getContactGroupsByCompany(companyId: string): Promise<ContactGroup[]>;
@@ -86,6 +95,14 @@ export interface IStorage {
   getAllCampaigns(): Promise<Campaign[]>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, campaign: Partial<InsertCampaign>): Promise<Campaign | undefined>;
+  updateCampaignStats(id: string, stats: {
+    totalRecipients?: number;
+    sentCount?: number;
+    openedCount?: number;
+    clickedCount?: number;
+    submittedDataCount?: number;
+    emailReportedCount?: number;
+  }): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<void>;
   
   // Campaign Recipients
@@ -319,6 +336,38 @@ export class PostgresStorage implements IStorage {
     await db.delete(schema.templates).where(eq(schema.templates.id, id));
   }
 
+  // Landing Pages
+  async getLandingPage(id: string): Promise<LandingPage | undefined> {
+    const [page] = await db.select().from(schema.landingPages).where(eq(schema.landingPages.id, id));
+    return page;
+  }
+
+  async getLandingPagesByCompany(companyId: string | null, includeGlobal = true): Promise<LandingPage[]> {
+    if (companyId === null) {
+      return db.select().from(schema.landingPages).where(eq(schema.landingPages.isGlobal, true));
+    }
+    if (includeGlobal) {
+      return db.select().from(schema.landingPages).where(
+        or(eq(schema.landingPages.companyId, companyId), eq(schema.landingPages.isGlobal, true))
+      ).orderBy(desc(schema.landingPages.createdAt));
+    }
+    return db.select().from(schema.landingPages).where(eq(schema.landingPages.companyId, companyId)).orderBy(desc(schema.landingPages.createdAt));
+  }
+
+  async createLandingPage(page: InsertLandingPage): Promise<LandingPage> {
+    const [newPage] = await db.insert(schema.landingPages).values(page).returning();
+    return newPage;
+  }
+
+  async updateLandingPage(id: string, page: Partial<InsertLandingPage>): Promise<LandingPage | undefined> {
+    const [updated] = await db.update(schema.landingPages).set({ ...page, updatedAt: new Date() }).where(eq(schema.landingPages.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLandingPage(id: string): Promise<void> {
+    await db.delete(schema.landingPages).where(eq(schema.landingPages.id, id));
+  }
+
   // Contact Groups
   async getContactGroup(id: string): Promise<ContactGroup | undefined> {
     const [group] = await db.select().from(schema.contactGroups).where(eq(schema.contactGroups.id, id));
@@ -430,6 +479,21 @@ export class PostgresStorage implements IStorage {
   async updateCampaign(id: string, insertCampaign: Partial<InsertCampaign>): Promise<Campaign | undefined> {
     const [campaign] = await db.update(schema.campaigns)
       .set({ ...insertCampaign, updatedAt: new Date() })
+      .where(eq(schema.campaigns.id, id))
+      .returning();
+    return campaign;
+  }
+
+  async updateCampaignStats(id: string, stats: {
+    totalRecipients?: number;
+    sentCount?: number;
+    openedCount?: number;
+    clickedCount?: number;
+    submittedDataCount?: number;
+    emailReportedCount?: number;
+  }): Promise<Campaign | undefined> {
+    const [campaign] = await db.update(schema.campaigns)
+      .set({ ...stats, updatedAt: new Date() })
       .where(eq(schema.campaigns.id, id))
       .returning();
     return campaign;

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
-import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
+import { insertCompanySchema, insertUserSchema, insertTemplateSchema, insertLandingPageSchema, insertContactSchema, insertContactGroupSchema, insertCampaignSchema, insertEmailServiceSchema, insertCollectedDataSchema, insertEmailEventSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 
@@ -514,6 +514,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Landing Pages API
+  app.get("/api/landing-pages", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      if (dbUser.role === "superadmin") {
+        // For superadmin, use query companyId or fallback to their own companyId
+        const companyId = (req.query.companyId as string) || dbUser.companyId;
+        const pages = await storage.getLandingPagesByCompany(companyId);
+        return res.json(pages);
+      }
+      const pages = await storage.getLandingPagesByCompany(dbUser.companyId);
+      res.json(pages);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch landing pages" });
+    }
+  });
+
+  app.get("/api/landing-pages/:id", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const page = await storage.getLandingPage(req.params.id);
+      if (!page) {
+        return res.status(404).json({ error: "Landing page not found" });
+      }
+      if (dbUser.role !== "superadmin" && page.companyId !== dbUser.companyId && !page.isGlobal) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(page);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch landing page" });
+    }
+  });
+
+  app.post("/api/landing-pages", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const data = insertLandingPageSchema.parse(req.body);
+      if (dbUser.role !== "superadmin") {
+        data.companyId = dbUser.companyId;
+        data.isGlobal = false;
+      } else {
+        // For superadmin, use their companyId if not specified
+        if (!data.companyId) {
+          data.companyId = dbUser.companyId;
+        }
+      }
+      const page = await storage.createLandingPage(data);
+      res.status(201).json(page);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create landing page" });
+    }
+  });
+
+  app.patch("/api/landing-pages/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingPage = await storage.getLandingPage(req.params.id);
+      if (!existingPage) {
+        return res.status(404).json({ error: "Landing page not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingPage.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const data = insertLandingPageSchema.partial().parse(req.body);
+      const page = await storage.updateLandingPage(req.params.id, data);
+      res.json(page);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update landing page" });
+    }
+  });
+
+  app.delete("/api/landing-pages/:id", isAuthenticated, requireRole("superadmin", "admin"), async (req, res) => {
+    try {
+      const dbUser = (req as any).dbUser;
+      const existingPage = await storage.getLandingPage(req.params.id);
+      if (!existingPage) {
+        return res.status(404).json({ error: "Landing page not found" });
+      }
+      if (dbUser.role !== "superadmin" && existingPage.companyId !== dbUser.companyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.deleteLandingPage(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete landing page" });
+    }
+  });
+
   // Contact Groups API
   app.get("/api/contact-groups", isAuthenticated, requireRole("superadmin", "admin", "manager"), async (req, res) => {
     try {
@@ -852,7 +946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const createdRecipients = await storage.createCampaignRecipientsBulk(recipients);
       
-      await storage.updateCampaign(campaignId, {
+      await storage.updateCampaignStats(campaignId, {
         totalRecipients: (campaign.totalRecipients || 0) + createdRecipients.length
       });
       
@@ -919,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const createdRecipients = await storage.createCampaignRecipientsBulk(recipients);
       
-      await storage.updateCampaign(campaignId, {
+      await storage.updateCampaignStats(campaignId, {
         totalRecipients: (campaign.totalRecipients || 0) + createdRecipients.length
       });
       
@@ -956,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.deleteCampaignRecipient(req.params.id);
       
-      await storage.updateCampaign(recipient.campaignId, {
+      await storage.updateCampaignStats(recipient.campaignId, {
         totalRecipients: Math.max(0, (campaign.totalRecipients || 0) - 1)
       });
       

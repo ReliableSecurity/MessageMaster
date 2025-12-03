@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, FileText, Users, Settings, BarChart3, Server, User, MessageSquare, Shield, UserCheck } from "lucide-react";
+import { LayoutDashboard, Mail, FileText, Users, Settings, BarChart3, Server, Shield, Globe, Send } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -26,25 +26,21 @@ const superadminItems = [
   { title: "Главная", url: "/", icon: LayoutDashboard },
   { title: "Админ-панель", url: "/admin", icon: Shield },
   { title: "Компании", url: "/companies", icon: Users },
-  { title: "Кампании", url: "/campaigns", icon: Mail },
-  { title: "Получатели", url: "/recipients", icon: UserCheck },
-  { title: "Контакты", url: "/contacts", icon: Users },
-  { title: "Email сервисы", url: "/services", icon: Server },
-  { title: "Шаблоны", url: "/global-templates", icon: FileText },
-  { title: "Отклики", url: "/responses", icon: MessageSquare },
-  { title: "Аналитика", url: "/analytics", icon: BarChart3 },
+  { title: "Кампании", url: "/campaigns", icon: Send },
+  { title: "Пользователи и группы", url: "/users-groups", icon: Users },
+  { title: "Шаблоны писем", url: "/templates", icon: Mail },
+  { title: "Фишинг-страницы", url: "/landing-pages", icon: Globe },
+  { title: "Профили отправки", url: "/sending-profiles", icon: Server },
   { title: "Настройки", url: "/settings", icon: Settings },
 ];
 
 const companyUserItems = [
   { title: "Главная", url: "/", icon: LayoutDashboard },
-  { title: "Кампании", url: "/campaigns", icon: Mail },
-  { title: "Получатели", url: "/recipients", icon: UserCheck },
-  { title: "Отклики", url: "/responses", icon: MessageSquare },
-  { title: "Шаблоны", url: "/templates", icon: FileText },
-  { title: "Контакты", url: "/contacts", icon: Users },
-  { title: "Аналитика", url: "/analytics", icon: BarChart3 },
-  { title: "Команда", url: "/team", icon: User },
+  { title: "Кампании", url: "/campaigns", icon: Send },
+  { title: "Пользователи и группы", url: "/users-groups", icon: Users },
+  { title: "Шаблоны писем", url: "/templates", icon: Mail },
+  { title: "Фишинг-страницы", url: "/landing-pages", icon: Globe },
+  { title: "Профили отправки", url: "/sending-profiles", icon: Server },
   { title: "Настройки", url: "/settings", icon: Settings },
 ];
 
