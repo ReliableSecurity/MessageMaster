@@ -26,8 +26,12 @@ const superadminItems = [
   { title: "Главная", url: "/", icon: LayoutDashboard },
   { title: "Админ-панель", url: "/admin", icon: Shield },
   { title: "Компании", url: "/companies", icon: Users },
+  { title: "Кампании", url: "/campaigns", icon: Mail },
+  { title: "Получатели", url: "/recipients", icon: UserCheck },
+  { title: "Контакты", url: "/contacts", icon: Users },
   { title: "Email сервисы", url: "/services", icon: Server },
   { title: "Шаблоны", url: "/global-templates", icon: FileText },
+  { title: "Отклики", url: "/responses", icon: MessageSquare },
   { title: "Аналитика", url: "/analytics", icon: BarChart3 },
   { title: "Настройки", url: "/settings", icon: Settings },
 ];
