@@ -4,8 +4,11 @@
 Multi-tenant SaaS platform for phishing simulation and security awareness testing (similar to GoPhish). Security teams can create controlled phishing campaigns, test employee susceptibility, and track engagement through a complete funnel: sent → opened → clicked → credentials_submitted.
 
 ## Recent Changes
+- **2025-12-03**: Added Admin Panel (/admin) for superadmin with user management, company management, and global statistics
+- **2025-12-03**: Added API endpoints for superadmin: /api/admin/users, /api/admin/stats, /api/users/:id/change-password
+- **2025-12-03**: Updated sidebar branding to PhishGuard with shield icon
 - **2025-12-03**: Rebranded to PhishGuard - landing page redesigned for phishing simulation / pentesting service
-- **2025-12-03**: Created superadmin account (admin@mailflow.ru)
+- **2025-12-03**: Created superadmin account (admin@mailflow.ru / SuperAdmin123!)
 - **2025-12-03**: Fixed database connection - storage.ts now uses shared db from db.ts with proper Neon WebSocket config
 - **2025-12-03**: Updated isAuthenticated middleware to support both local session and Replit OAuth
 - **2025-12-03**: Auto-login after registration - users are automatically logged in after registering
@@ -58,6 +61,8 @@ Multi-tenant SaaS platform for phishing simulation and security awareness testin
 - `shared/schema.ts`: Drizzle ORM schema
 - `client/src/hooks/useAuth.ts`: Client-side auth hook
 - `client/src/App.tsx`: Main app with auth routing
+- `client/src/pages/admin.tsx`: Superadmin panel with user/company management
+- `client/src/components/app-sidebar.tsx`: Main navigation with PhishGuard branding
 
 ### Security Notes
 - API credentials stored in plaintext - needs encryption before production
